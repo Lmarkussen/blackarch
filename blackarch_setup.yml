@@ -1,85 +1,101 @@
 ---
 - hosts: localhost
-  become: yes
+  gather_facts: true
   vars:
     user: "{{ lookup('env','USER') }}"
-    user_home: "/home/{{ user }}"
-    timestamp: "{{ lookup('pipe','date +%Y%m%d-%H%M') }}"
-    wallpaper_src: "{{ playbook_dir }}/wallpaper.jpg"
-    wallpaper_dest: "{{ user_home }}/Pictures/wallpaper.jpg"
+    user_home: "/home/{{ lookup('env','USER') }}"
 
   tasks:
   ###############################################################
   # BLACKARCH REPO
   ###############################################################
   - name: Install BlackArch repository
-    shell: "curl -s https://blackarch.org/strap.sh | bash"
+    command: sh -c "$(curl -fsSL https://blackarch.org/strap.sh)"
+    args:
+      creates: /etc/pacman.d/blackarch-mirrorlist
 
-  ###############################################################
-  # PACMAN PENTEST PACKAGES
-  ###############################################################
-  - name: Install pentest packages (pacman)
+  - name: Update package databases
     ansible.builtin.pacman:
-      name:
-        - gobuster
-        - hashcat
-        - john
-        - hydra
-        - sqlmap
-        - impacket
-        - openvpn
-        - responder
-        - kerbrute
-        - dnsutils
-        - ffuf
-        - masscan
-        - netcat
-        - gowitness
-        - evil-winrm
-      state: present
       update_cache: true
 
   ###############################################################
-  # BUILD AND INSTALL YAY
+  # CLEAN YAY IF EXISTS
   ###############################################################
-  - name: Remove existing yay build
+  - name: Remove old yay directory
     file:
       path: "{{ user_home }}/yay"
       state: absent
 
+  ###############################################################
+  # CLONE YAY
+  ###############################################################
   - name: Clone yay
     ansible.builtin.git:
       repo: https://aur.archlinux.org/yay.git
       dest: "{{ user_home }}/yay"
 
+  - name: Fix permissions on yay folder
+    file:
+      path: "{{ user_home }}/yay"
+      owner: "{{ user }}"
+      group: "{{ user }}"
+      recurse: yes
+
+  ###############################################################
+  # BUILD YAY AS USER
+  ###############################################################
   - name: Build yay (as user)
-    command: makepkg --noconfirm -si --needed
     become_user: "{{ user }}"
+    command: makepkg --noconfirm -si --needed
     args:
       chdir: "{{ user_home }}/yay"
 
   ###############################################################
-  # AUR PACKAGES USING YAY (ROOT INSTALL)
+  # PACMAN PACKAGES
   ###############################################################
-  - name: Install AUR packages with yay (as root)
-    become: true
-    command: yay -S --noconfirm --needed --answerclean All brave-bin burpsuite slack-desktop extension-manager flatpak
+  - name: Install base packages (pacman)
+    ansible.builtin.pacman:
+      name:
+        - base-devel
+        - go
+        - wget
+        - curl
+        - unzip
+        - python-pip
+        - python-pipx
+        - tmux
+        - fish
+        - netexec
+      state: present
 
   ###############################################################
-  # FLATPAK INSTALLS
+  # SET FISH DEFAULT SHELL
+  ###############################################################
+  - name: Set fish as default shell
+    command: chsh -s /usr/bin/fish {{ user }}
+
+  ###############################################################
+  # AUR PACKAGES (YAY)
+  ###############################################################
+  - name: Install AUR packages with yay
+    become_user: "{{ user }}"
+    command: yay -S --noconfirm --needed brave-bin burpsuite extension-manager flatpak
+
+  ###############################################################
+  # FLATPAK
   ###############################################################
   - name: Install Obfuscate (flatpak)
     become_user: "{{ user }}"
-    command: flatpak install -y com.obfuscate.Obfuscate
+    command: flatpak install -y com.github.hluk.copyq
 
   ###############################################################
-  # CLONE GITHUB REPOSITORIES
+  # CLONE GITHUB REPOS
   ###############################################################
   - name: Clone pentest repos
     ansible.builtin.git:
       repo: "{{ item }}"
-      dest: "{{ user_home }}/Tools/{{ item.split('/')[-1] }}"
-    with_items:
+      dest: "{{ user_home }}/tools/{{ item | basename }}"
+    loop:
       - https://github.com/lefayjey/linWinPwn
       - https://github.com/garrettfoster13/sccmhunter
       - https://github.com/MWR-CyberSec/PXEThief
@@ -91,43 +107,20 @@
       - https://github.com/OleFredrik1/remoteKrbRelayx
 
   ###############################################################
-  # WALLPAPER
+  # THEMING
   ###############################################################
-  - name: Ensure Pictures directory exists
-    file:
-      path: "{{ user_home }}/Pictures"
-      state: directory
-      mode: '0755'
-      owner: "{{ user }}"
-      group: "{{ user }}"
-
-  - name: Copy wallpaper from local repo
-    copy:
-      src: "{{ wallpaper_src }}"
-      dest: "{{ wallpaper_dest }}"
-      owner: "{{ user }}"
-      group: "{{ user }}"
-
-  ###############################################################
-  # GNOME EXTENSION MANAGER
-  ###############################################################
-  - name: Install extension manager
-    become: true
-    command: yay -S --noconfirm extension-manager
-
-  ###############################################################
-  # DRACULA THEME
-  ###############################################################
-  - name: Create local theme folder
+  - name: Create theme dir
     file:
       path: "{{ user_home }}/.themes"
       state: directory
       owner: "{{ user }}"
       group: "{{ user }}"
-      mode: '0755'
 
-  - name: Download Dracula GTK
-    become_user: "{{ user }}"
-    git:
-      re
+  - name: Copy wallpaper
+    ansible.builtin.copy:
+      src: wallpaper.jpg
+      dest: "{{ user_home }}/Pictures/wallpaper.jpg"
+      owner: "{{ user }}"
+      group: "{{ user }}"
+
 
