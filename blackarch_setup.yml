@@ -1,10 +1,10 @@
 ---
-- name: Setup Arch pentest workstation
-  hosts: localhost
-  become: true
+- hosts: localhost
+  become: yes
   vars:
-    user: "{{ ansible_env.SUDO_USER }}"
-    user_home: "/home/{{ ansible_env.SUDO_USER }}"
+    user: "{{ lookup('env','USER') }}"
+    user_home: "/home/{{ user }}"
+    timestamp: "{{ lookup('pipe','date +%Y%m%d-%H%M') }}"
     wallpaper_src: "{{ playbook_dir }}/wallpaper.jpg"
     wallpaper_dest: "{{ user_home }}/Pictures/wallpaper.jpg"
 
@@ -12,53 +12,13 @@
   ###############################################################
   # BLACKARCH REPO
   ###############################################################
-  - name: Download BlackArch strap script
-    ansible.builtin.get_url:
-      url: https://blackarch.org/strap.sh
-      dest: /tmp/strap.sh
-      mode: '0755'
-
   - name: Install BlackArch repository
-    command: bash /tmp/strap.sh
-
-  ###############################################################
-  # BASE SYSTEM PACKAGES
-  ###############################################################
-  - name: Install base system reqs (pacman)
-    ansible.builtin.pacman:
-      update_cache: true
-      name:
-        - base-devel
-        - go
-        - wget
-        - curl
-        - unzip
-        - git
-        - reflector
-
-  ###############################################################
-  # SETUP YAY
-  ###############################################################
-  - name: Clone yay
-    become_user: "{{ user }}"
-    ansible.builtin.git:
-      repo: "https://aur.archlinux.org/yay.git"
-      dest: "{{ user_home }}/yay"
-      update: yes
-
-  - name: Build yay (no install here)
-    become_user: "{{ user }}"
-    command: makepkg --noconfirm -s
+    command: "curl -s https://blackarch.org/strap.sh | bash"
     args:
-      chdir: "{{ user_home }}/yay"
-
-  - name: Install yay package (as root)
-    shell: pacman -U --noconfirm yay-*.pkg.tar.*
-    args:
-      chdir: "{{ user_home }}/yay"
+      warn: false
 
   ###############################################################
-  # PENTEST PACKAGES (pacman)
+  # PACMAN PENTEST PACKAGES
   ###############################################################
   - name: Install pentest packages (pacman)
     ansible.builtin.pacman:
@@ -78,88 +38,51 @@
         - netcat
         - gowitness
         - evil-winrm
-        - tmux
-        - fish
       state: present
       update_cache: true
 
-  - name: Set fish as default shell
-    command: chsh -s /usr/bin/fish "{{ user }}"
-
   ###############################################################
-  # AUR PACKAGES VIA YAY
+  # BUILD AND INSTALL YAY
   ###############################################################
-  - name: Install AUR packages with yay
-    become_user: "{{ user }}"
-    command: yay -S --noconfirm --needed brave-bin burpsuite slack-desktop extension-manager flatpak
-
-  ###############################################################
-  # FLATPAKS
-  ###############################################################
-  - name: Install obfuscate (flatpak)
-    become_user: "{{ user }}"
-    command: flatpak install -y app.drey.Obfuscate
-
-  ###############################################################
-  # GNOME THEME (SAFE)
-  ###############################################################
-  - name: Try to set Dracula user-theme (won't break if missing)
-    become_user: "{{ user }}"
-    command: gsettings set org.gnome.shell.extensions.user-theme name Dracula
-    ignore_errors: true
-
-  ###############################################################
-  # WALLPAPER & FONT
-  ###############################################################
-  - name: Create Pictures folder
+  - name: Remove any existing yay build
     file:
-      path: "{{ user_home }}/Pictures"
-      state: directory
-      owner: "{{ user }}"
-      group: "{{ user }}"
+      path: "{{ user_home }}/yay"
+      state: absent
 
-  - name: Copy wallpaper
-    copy:
-      src: "{{ wallpaper_src }}"
-      dest: "{{ wallpaper_dest }}"
-      mode: 0644
-      owner: "{{ user }}"
-      group: "{{ user }}"
+  - name: Clone yay
+    ansible.builtin.git:
+      repo: https://aur.archlinux.org/yay.git
+      dest: "{{ user_home }}/yay"
+    become: true
 
-  - name: Set wallpaper
+  - name: Build yay (as user)
+    command: makepkg --noconfirm -si --needed
     become_user: "{{ user }}"
-    command: gsettings set org.gnome.desktop.background picture-uri "file://{{ wallpaper_dest }}"
-
-  - name: Download Nerd Font
-    become_user: "{{ user }}"
-    ansible.builtin.get_url:
-      url: "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Hack.zip"
-      dest: "{{ user_home }}/Hack.zip"
-
-  - name: Extract Nerd Font
-    become_user: "{{ user }}"
-    ansible.builtin.unarchive:
-      src: "{{ user_home }}/Hack.zip"
-      dest: "{{ user_home }}/.local/share/fonts"
-      remote_src: true
+    args:
+      chdir: "{{ user_home }}/yay"
 
   ###############################################################
-  # GIT TOOL REPOS
+  # AUR PACKAGES USING YAY (RUN AS ROOT!)
   ###############################################################
-  - name: Create tools directory
-    file:
-      path: "{{ user_home }}/tools"
-      state: directory
-      owner: "{{ user }}"
-      group: "{{ user }}"
+  - name: Install AUR packages with yay (as root)
+    become: true
+    command: yay -S --noconfirm --needed --answerclean All brave-bin burpsuite slack-desktop extension-manager flatpak
 
+  ###############################################################
+  # FLATPAK INSTALLS
+  ###############################################################
+  - name: Install Obfuscate (flatpak)
+    become_user: "{{ user }}"
+    command: flatpak install -y com.obfuscate.Obfuscate
+
+  ###############################################################
+  # CLONE GITHUB REPOSITORIES
+  ###############################################################
   - name: Clone pentest repos
-    become_user: "{{ user }}"
     ansible.builtin.git:
       repo: "{{ item }}"
-      dest: "{{ user_home }}/tools/{{ item | basename }}"
-      update: yes
-    loop:
+      dest: "{{ user_home }}/Tools/{{ item.split('/')[-1] }}"
+    with_items:
       - https://github.com/lefayjey/linWinPwn
       - https://github.com/garrettfoster13/sccmhunter
       - https://github.com/MWR-CyberSec/PXEThief
@@ -171,12 +94,55 @@
       - https://github.com/OleFredrik1/remoteKrbRelayx
 
   ###############################################################
-  # FINAL MESSAGE
+  # WALLPAPER
   ###############################################################
-  - name: Final message
-    ansible.builtin.debug:
-      msg: |
-        ✔ Setup Complete!
-        🔒 Logout/Login required for fish shell etc.
-        🎯 Full pentest workstation ready.
+  - name: Ensure Pictures directory exists
+    file:
+      path: "{{ user_home }}/Pictures"
+      state: directory
+      mode: '0755'
+      owner: "{{ user }}"
+      group: "{{ user }}"
+
+  - name: Copy wallpaper from local repo
+    copy:
+      src: "{{ wallpaper_src }}"
+      dest: "{{ wallpaper_dest }}"
+      owner: "{{ user }}"
+      group: "{{ user }}"
+
+  ###############################################################
+  # GNOME EXTENSIONS
+  ###############################################################
+  - name: Install extension manager (verified)
+    become: true
+    command: yay -S --noconfirm extension-manager
+
+  ###############################################################
+  # GNOME THEMING (DRACULA)
+  ###############################################################
+  - name: Create local theme folder
+    file:
+      path: "{{ user_home }}/.themes"
+      state: directory
+      owner: "{{ user }}"
+      group: "{{ user }}"
+      mode: '0755'
+
+  - name: Download Dracula GTK
+    become_user: "{{ user }}"
+    git:
+      repo: https://github.com/dracula/gtk.git
+      dest: "{{ user_home }}/.themes/Dracula"
+
+  - name: Set GTK theme
+    become_user: "{{ user }}"
+    command: gsettings set org.gnome.desktop.interface gtk-theme "Dracula"
+
+  ###############################################################
+  # SET WALLPAPER
+  ###############################################################
+  - name: Set wallpaper (Wayland)
+    become_user: "{{ user }}"
+    command: gsettings set org.gnome.desktop.background picture-uri-dark "file://{{ wallpaper_dest }}"
 
