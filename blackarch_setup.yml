@@ -1,16 +1,20 @@
 ---
-- name: Setup Arch with BlackArch and pentest tooling
+- name: Setup Arch pentest workstation
   hosts: localhost
-  become: yes
+  become: true
   become_method: sudo
-  become_user: root
 
   vars:
-    user: "{{ ansible_env.SUDO_USER }}"
-    user_home: "/home/{{ ansible_env.SUDO_USER }}"
-    tools_dir: "/home/{{ ansible_env.SUDO_USER }}/tools"
+    user: "{{ ansible_env.SUDO_USER | default(ansible_env.USER) }}"
+    user_home: "/home/{{ ansible_env.SUDO_USER | default(ansible_env.USER) }}"
+    tools_dir: "{{ user_home }}/tools"
 
     pacman_packages:
+      - base-devel
+      - git
+      - curl
+      - wget
+      - reflector
       - nmap
       - gobuster
       - wireshark-cli
@@ -25,13 +29,13 @@
       - thunar-archive-plugin
       - go
       - rust
-      - base-devel
+      - docker
+      - docker-compose
       - fish
       - tmux
       - grc
-      - docker
-      - docker-compose
       - fzf
+      - seclists
 
     aur_packages:
       - brave-bin
@@ -39,69 +43,36 @@
       - slack-desktop
       - extension-manager
 
-    flatpak_packages:
-      - wps.Office
-      - md.obsidian.Obsidian
-      - com.brave.Browser
-      - com.proton.pass
-      - org.signal.Signal
-      - com.github.zocker_160.Obfuscate
-
     github_tools:
-      - repo: https://github.com/ropnop/kerbrute.git
-        name: kerbrute
-      - repo: https://github.com/carlospolop/PEASS-ng.git
-        name: PEASS-ng
-      - repo: https://github.com/samratashok/nishang.git
-        name: nishang
-      - repo: https://github.com/lefayjey/linWinPwn.git
-        name: linWinPwn
-      - repo: https://github.com/garrettfoster13/sccmhunter.git
-        name: sccmhunter
-      - repo: https://github.com/MWR-CyberSec/PXEThief.git
-        name: PXEThief
-      - repo: https://github.com/SpecterOps/bloodhound-cli.git
-        name: bloodhound-cli
-      - repo: https://github.com/Lmarkussen/EvilTelnet.git
-        name: EvilTelnet
-      - repo: https://github.com/Lmarkussen/EvilParser.git
-        name: EvilParser
-      - repo: https://github.com/Lmarkussen/EvilFTP.git
-        name: EvilFTP
-      - repo: https://github.com/Lmarkussen/Bruteforce_wordlist_nor.git
-        name: Bruteforce_wordlist_nor
-      - repo: https://github.com/danielmiessler/SecLists.git
-        name: SecLists
-
+      - { repo: "https://github.com/lefayjey/linWinPwn.git",           name: "linWinPwn" }
+      - { repo: "https://github.com/garrettfoster13/sccmhunter.git",   name: "sccmhunter" }
+      - { repo: "https://github.com/MWR-CyberSec/PXEThief.git",        name: "PXEThief" }
+      - { repo: "https://github.com/SpecterOps/bloodhound-cli.git",    name: "bloodhound-cli" }
+      - { repo: "https://github.com/Lmarkussen/EvilTelnet.git",        name: "EvilTelnet" }
+      - { repo: "https://github.com/Lmarkussen/EvilParser.git",        name: "EvilParser" }
+      - { repo: "https://github.com/Lmarkussen/EvilFTP.git",           name: "EvilFTP" }
+      - { repo: "https://github.com/Lmarkussen/Bruteforce_wordlist_nor.git", name: "Bruteforce_wordlist_nor" }
 
   tasks:
-
     #################################################################
-    # MIRRORLIST
+    # PACMAN BASE
     #################################################################
-    - name: Install reflector
-      community.general.pacman:
-        name: reflector
+    - name: Ensure archlinux-keyring is installed and cache updated
+      ansible.builtin.pacman:
+        name: archlinux-keyring
         state: present
+        update_cache: yes
 
-    - name: Generate fresh Arch Mirrorlist
-      ansible.builtin.shell: reflector --latest 20 --sort rate --save /etc/pacman.d/mirrorlist
-
-
-    #################################################################
-    # PACMAN PACKAGES
-    #################################################################
-    - name: Install pacman packages
-      community.general.pacman:
+    - name: Install base packages
+      ansible.builtin.pacman:
         name: "{{ pacman_packages }}"
         state: present
         update_cache: yes
 
-
     #################################################################
-    # DOCKER SETUP
+    # DOCKER
     #################################################################
-    - name: Enable and start Docker daemon
+    - name: Enable and start Docker
       ansible.builtin.systemd:
         name: docker
         enabled: yes
@@ -113,86 +84,81 @@
         groups: docker
         append: yes
 
-    - name: Notify user
-      ansible.builtin.debug:
-        msg: "You MUST log out and back in for docker group to take effect!"
-
-
     #################################################################
-    # INSTALL YAY
+    # YAY INSTALL (BUILD ONLY, THEN INSTALL)
     #################################################################
-    - name: Clone yay repo
-      become: no
+    - name: Clone yay AUR helper
+      become: false
       ansible.builtin.git:
         repo: https://aur.archlinux.org/yay.git
         dest: "{{ user_home }}/yay"
 
-    - name: Build yay
-      become: no
+    - name: Clean previous yay build artifacts
+      become: false
       ansible.builtin.shell: |
-        cd {{ user_home }}/yay
-        makepkg --noconfirm -si
+        rm -rf "{{ user_home }}/yay/pkg" "{{ user_home }}/yay/src" "{{ user_home }}/yay"/*.pkg.tar.zst
       args:
-        creates: /usr/bin/yay
+        executable: /bin/bash
 
+    - name: Build yay package (no install)
+      become: false
+      ansible.builtin.shell: |
+        cd "{{ user_home }}/yay"
+        makepkg --noconfirm -f -s
+      args:
+        executable: /bin/bash
+
+    - name: Install yay package as root
+      ansible.builtin.shell: |
+        pacman -U --noconfirm "{{ user_home }}"/yay/*.pkg.tar.zst
+      args:
+        executable: /bin/bash
+
+    #################################################################
+    # SUDOERS FOR YAY/PACMAN (FOR AUR INSTALLS)
+    #################################################################
+    - name: Allow yay to use sudo without password
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/10-yay
+        content: |
+          Cmnd_Alias YAY_CMDS = /usr/bin/pacman, /usr/bin/yay
+          {{ user }} ALL=(ALL) NOPASSWD: YAY_CMDS
+        mode: '0440'
 
     #################################################################
     # AUR PACKAGES
     #################################################################
-    - name: Install AUR packages
-      become: no
-      ansible.builtin.shell: yay -S --noconfirm {{ item }}
+    - name: Install AUR packages with yay
+      become: false
+      ansible.builtin.shell: |
+        yay -S --needed --noconfirm --noprogressbar {{ item }}
       loop: "{{ aur_packages }}"
-
-
-    #################################################################
-    # FLATPAK
-    #################################################################
-    - name: Add flathub repo
-      ansible.builtin.shell: |
-        flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-
-    - name: Install flatpak packages
-      ansible.builtin.shell: |
-        flatpak install -y flathub {{ item }}
-      loop: "{{ flatpak_packages }}"
-
+      args:
+        executable: /bin/bash
 
     #################################################################
     # GITHUB TOOLS
     #################################################################
-    - name: Create tools dir
+    - name: Create tools directory
       ansible.builtin.file:
         path: "{{ tools_dir }}"
         state: directory
         owner: "{{ user }}"
         group: "{{ user }}"
-        mode: "0755"
+        mode: '0755'
 
-    - name: Clone tools (depth 1 if SecLists)
-      become: no
-      ansible.builtin.shell: |
-        git clone --depth 1 {{ item.repo }} {{ tools_dir }}/{{ item.name }}
+    - name: Clone pentest tools
+      become: false
+      ansible.builtin.git:
+        repo: "{{ item.repo }}"
+        dest: "{{ tools_dir }}/{{ item.name }}"
       loop: "{{ github_tools }}"
 
-    - name: Fix permissions on tools
-      ansible.builtin.file:
-        path: "{{ tools_dir }}"
-        recurse: yes
-        owner: "{{ user }}"
-        group: "{{ user }}"
-        mode: "0755"
-
-
     #################################################################
-    # FISH SHELL
+    # CONFIGS
     #################################################################
-    - name: Set fish as default shell
-      ansible.builtin.shell: |
-        chsh -s /usr/bin/fish {{ user }}
-
-    - name: Ensure fish config dir exists
-      become: no
+    - name: Ensure fish config directory exists
+      become: false
       ansible.builtin.file:
         path: "{{ user_home }}/.config/fish"
         state: directory
@@ -203,13 +169,9 @@
         dest: "{{ user_home }}/.config/fish/config.fish"
         owner: "{{ user }}"
         group: "{{ user }}"
-        mode: "0644"
+        mode: '0644'
 
-
-    #################################################################
-    # TMUX
-    #################################################################
-    - name: Ensure tmux config dir exists
+    - name: Ensure tmux config directory exists
       ansible.builtin.file:
         path: "{{ user_home }}/.config/tmux"
         state: directory
@@ -220,5 +182,16 @@
         dest: "{{ user_home }}/.config/tmux/tmux.conf"
         owner: "{{ user }}"
         group: "{{ user }}"
-        mode: "0644"
+        mode: '0644'
+
+    #################################################################
+    # SHELL
+    #################################################################
+    - name: Set fish as default shell safely
+      ansible.builtin.shell: |
+        if command -v fish >/dev/null 2>&1; then
+          chsh -s /usr/bin/fish "{{ user }}"
+        fi
+      args:
+        executable: /bin/bash
 
