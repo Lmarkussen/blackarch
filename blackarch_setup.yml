@@ -3,7 +3,7 @@
   hosts: localhost
   become: true
   vars:
-    user: "{{ lookup('env','SUDO_USER') | default(lookup('env','USER')) }}"
+    user: "{{ lookup('env','SUDO_USER') | default(lookup('env','USER'), true) | default('lars', true) }}"
     user_home: "/home/{{ user }}"
     tools_dir: "{{ user_home }}/tools"
     wallpaper_src: "{{ playbook_dir }}/wallpaper.jpg"
@@ -187,4 +187,3 @@
     ansible.builtin.user:
       name: "{{ user }}"
       shell: /usr/bin/fish
-
