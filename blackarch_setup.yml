@@ -135,5 +135,5 @@
 #################################################################
     - name: Finished
       ansible.builtin.debug:
-        msg: "Setup completed. "
+        msg: "Setup completed. Reboot is recommended"
 
