@@ -53,7 +53,7 @@
       chdir: "{{ user_home }}/yay"
 
   - name: Install yay package (as root)
-    command: pacman -U --noconfirm yay-*.pkg.tar.*
+    shell: pacman -U --noconfirm yay-*.pkg.tar.*
     args:
       chdir: "{{ user_home }}/yay"
 
@@ -101,11 +101,12 @@
     command: flatpak install -y app.drey.Obfuscate
 
   ###############################################################
-  # GNOME EXTENSIONS
+  # GNOME THEME (SAFE)
   ###############################################################
-  - name: Enable user-theme extension
+  - name: Try to set Dracula user-theme (won't break if missing)
     become_user: "{{ user }}"
     command: gsettings set org.gnome.shell.extensions.user-theme name Dracula
+    ignore_errors: true
 
   ###############################################################
   # WALLPAPER & FONT
@@ -176,6 +177,6 @@
     ansible.builtin.debug:
       msg: |
         ✔ Setup Complete!
-        🔒 Logout/Login required for fish shell + docker group
-        🎯 You are now running a fully weaponized pentest workstation.
+        🔒 Logout/Login required for fish shell etc.
+        🎯 Full pentest workstation ready.
 
