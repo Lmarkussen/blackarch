@@ -2,221 +2,221 @@
 - name: Setup Arch pentest workstation
   hosts: localhost
   become: true
+
   vars:
-    user: "{{ lookup('env','SUDO_USER') or lookup('env','USER') }}"
+    user: "{{ ansible_env.SUDO_USER | default(ansible_user_id) }}"
     user_home: "/home/{{ user }}"
     tools_dir: "{{ user_home }}/tools"
 
   tasks:
 
-  ###############################################################
-  # MIRRORS / SYSTEM
-  ###############################################################
+    ############################################################
+    # BASE & MIRRORS
+    ############################################################
 
-  - name: Install prereqs
-    pacman:
-      name:
-        - reflector
-        - git
-        - curl
-        - base-devel
-      state: present
+    - name: Install base prerequisites
+      ansible.builtin.pacman:
+        name:
+          - git
+          - base-devel
+          - reflector
+          - curl
+          - wget
+        state: present
+        update_cache: yes
 
-  - name: Optimize pacman mirrors
-    command: reflector --latest 20 --sort rate --save /etc/pacman.d/mirrorlist
+    - name: Optimize pacman mirrors
+      ansible.builtin.command:
+        cmd: reflector --latest 20 --sort rate --save /etc/pacman.d/mirrorlist
 
-  - name: Update pacman database and system
-    pacman:
-      update_cache: true
-      upgrade: true
+    - name: Update pacman database and system
+      ansible.builtin.pacman:
+        update_cache: yes
+        upgrade: yes
 
+    ############################################################
+    # BLACKARCH REPO
+    ############################################################
 
-  ###############################################################
-  # BLACKARCH REPO
-  ###############################################################
+    - name: Download BlackArch strap.sh
+      ansible.builtin.get_url:
+        url: https://blackarch.org/strap.sh
+        dest: /tmp/strap.sh
+        mode: '0755'
 
-  - name: Download BlackArch bootstrap
-    get_url:
-      url: https://blackarch.org/strap.sh
-      dest: /tmp/strap.sh
-      mode: '0755'
+    - name: Run BlackArch strap.sh
+      ansible.builtin.command:
+        cmd: /tmp/strap.sh
 
-  - name: Install BlackArch repo
-    command: /tmp/strap.sh
+    - name: Refresh pacman after adding BlackArch
+      ansible.builtin.pacman:
+        update_cache: yes
 
+    ############################################################
+    # CORE PACKAGES VIA PACMAN (INCLUDING yay)
+    ############################################################
 
-  ###############################################################
-  # YAY BUILD
-  ###############################################################
+    - name: Install core tools from pacman
+      ansible.builtin.pacman:
+        name:
+          - yay
+          - docker
+          - docker-compose
+          - tmux
+          - fish
+          - grc
+          - fzf
+          - seclists
+          - python
+          - python-pip
+          - python-pipx
+        state: present
 
-  - name: Install yay build deps
-    pacman:
-      name:
-        - base-devel
-        - go
-        - git
-      state: present
+    ############################################################
+    # PENTEST PACKAGES (PACMAN)
+    ############################################################
 
-  - name: Clone yay
-    become: false
-    git:
-      repo: https://aur.archlinux.org/yay.git
-      dest: "{{ user_home }}/yay"
-      update: true
+    - name: Install pentest packages from pacman
+      ansible.builtin.pacman:
+        name:
+          - hashcat
+          - netexec
+          - john
+          - hydra
+          - sqlmap
+          - impacket
+          - openvpn
+          - responder
+          - kerbrute
+          - gobuster
+          - evil-winrm
+          - gowitness
+          - masscan
+          - netcat
+          - certipy
+          - dnsutils
+          - ffuf
+        state: present
 
-  - name: Build yay (as user)
-    become: false
-    shell: |
-      cd "{{ user_home }}/yay"
-      makepkg --noconfirm -si
+    ############################################################
+    # DOCKER SETUP
+    ############################################################
 
+    - name: Enable Docker service
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
 
-  ###############################################################
-  # PACMAN PACKAGES  (netcat now correct)
-  ###############################################################
+    - name: Add user to docker group
+      ansible.builtin.user:
+        name: "{{ user }}"
+        groups: docker
+        append: true
 
-  - name: Install pentest packages (pacman)
-    pacman:
-      name:
-        - tmux
+    - name: Notify user about docker group
+      ansible.builtin.debug:
+        msg: "You must log out and back in for docker group permissions to apply."
+
+    ############################################################
+    # SUDOERS FIX FOR yay (NO PASSWORD FOR PACMAN)
+    ############################################################
+
+    - name: Allow user to run pacman without password for yay
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/99-{{ user }}-pacman"
+        content: "{{ user }} ALL=(ALL) NOPASSWD: /usr/bin/pacman\n"
+        mode: '0440'
+
+    ############################################################
+    # AUR PACKAGES VIA yay
+    ############################################################
+
+    - name: Install AUR packages with yay
+      become: false
+      ansible.builtin.command:
+        cmd: yay -S --noconfirm --needed brave-bin burpsuite slack-desktop extension-manager
+      args:
+        chdir: "{{ user_home }}"
+
+    ############################################################
+    # CREATE tools DIR
+    ############################################################
+
+    - name: Create tools directory
+      ansible.builtin.file:
+        path: "{{ tools_dir }}"
+        state: directory
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: '0755'
+
+    ############################################################
+    # CLONE ALL OFFENSIVE REPOS
+    ############################################################
+
+    - name: Clone offensive tools into ~/tools
+      become: false
+      ansible.builtin.git:
+        repo: "{{ item.repo }}"
+        dest: "{{ tools_dir }}/{{ item.name }}"
+      loop:
+        - { name: "linWinPwn", repo: "https://github.com/lefayjey/linWinPwn" }
+        - { name: "sccmhunter", repo: "https://github.com/garrettfoster13/sccmhunter" }
+        - { name: "PXEThief", repo: "https://github.com/MWR-CyberSec/PXEThief" }
+        - { name: "bloodhound-cli", repo: "https://github.com/SpecterOps/bloodhound-cli" }
+        - { name: "EvilTelnet", repo: "https://github.com/Lmarkussen/EvilTelnet" }
+        - { name: "EvilParser", repo: "https://github.com/Lmarkussen/EvilParser" }
+        - { name: "EvilFTP", repo: "https://github.com/Lmarkussen/EvilFTP" }
+        - { name: "Bruteforce_wordlist_nor", repo: "https://github.com/Lmarkussen/Bruteforce_wordlist_nor" }
+        - { name: "remoteKrbRelayx", repo: "https://github.com/OleFredrik1/remoteKrbRelayx" }
+
+    ############################################################
+    # SHELL CONFIG
+    ############################################################
+
+    - name: Ensure config directories exist
+      ansible.builtin.file:
+        path: "{{ user_home }}/.config/{{ item }}"
+        state: directory
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: '0755'
+      loop:
         - fish
-        - grc
-        - hashcat
-        - john
-        - hydra
-        - sqlmap
-        - impacket
-        - dnsutils
-        - ffuf
-        - openvpn
-        - responder
-        - gobuster
-        - evil-winrm
-        - gowitness
-        - masscan
-        - netcat
-        - certipy
-      state: present
+        - tmux
 
+    - name: Copy fish config
+      ansible.builtin.copy:
+        src: config.fish
+        dest: "{{ user_home }}/.config/fish/config.fish"
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: '0644'
 
-  ###############################################################
-  # DOCKER
-  ###############################################################
+    - name: Copy tmux config
+      ansible.builtin.copy:
+        src: tmux.conf
+        dest: "{{ user_home }}/.config/tmux/tmux.conf"
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: '0644'
 
-  - name: Install Docker + compose
-    pacman:
-      name:
-        - docker
-        - docker-compose
-      state: present
+    - name: Set fish as default shell
+      ansible.builtin.user:
+        name: "{{ user }}"
+        shell: /usr/bin/fish
 
-  - name: Enable docker service
-    systemd:
-      name: docker
-      enabled: true
-      state: started
+    ############################################################
+    # FINAL SUMMARY
+    ############################################################
 
-  - name: Add user to docker group
-    user:
-      name: "{{ user }}"
-      groups: docker
-      append: true
-
-  - name: Notify user about docker relog
-    debug:
-      msg: "Logout/Login required for docker permissions to take effect."
-
-
-  ###############################################################
-  # AUR PACKAGES (yay)
-  ###############################################################
-
-  - name: Install AUR packages via yay
-    become: false
-    shell: yay -S --noconfirm --needed {{ item }}
-    loop:
-      - brave-bin
-      - burpsuite
-      - slack-desktop
-      - extension-manager
-
-
-  ###############################################################
-  # PIPX
-  ###############################################################
-
-  - name: Install pipx
-    pacman:
-      name: python-pipx
-      state: present
-
-
-  ###############################################################
-  # CREATE ~/tools
-  ###############################################################
-
-  - name: Create tools directory
-    file:
-      path: "{{ tools_dir }}"
-      state: directory
-      mode: "0755"
-      owner: "{{ user }}"
-      group: "{{ user }}"
-
-
-  ###############################################################
-  # CLONE GITHUB TOOLS
-  ###############################################################
-
-  - name: Clone offensive tools into ~/tools
-    become: false
-    git:
-      repo: "{{ item }}"
-      dest: "{{ tools_dir }}/{{ item | basename | regex_replace('\\.git$','') }}"
-      update: false
-    loop:
-      - https://github.com/lefayjey/linWinPwn.git
-      - https://github.com/garrettfoster13/sccmhunter.git
-      - https://github.com/MWR-CyberSec/PXEThief.git
-      - https://github.com/SpecterOps/bloodhound-cli.git
-      - https://github.com/Lmarkussen/EvilTelnet.git
-      - https://github.com/Lmarkussen/EvilParser.git
-      - https://github.com/Lmarkussen/EvilFTP.git
-      - https://github.com/Lmarkussen/Bruteforce_wordlist_nor.git
-      - https://github.com/OleFredrik1/remoteKrbRelayx.git
-
-
-  ###############################################################
-  # FISH CONFIG
-  ###############################################################
-
-  - name: Set fish default shell
-    user:
-      name: "{{ user }}"
-      shell: /usr/bin/fish
-
-  - name: Ensure fish config directory exists
-    file:
-      path: "{{ user_home }}/.config/fish"
-      state: directory
-      owner: "{{ user }}"
-      group: "{{ user }}"
-      mode: '0755'
-
-  - name: Install fish config
-    copy:
-      src: config.fish
-      dest: "{{ user_home }}/.config/fish/config.fish"
-      owner: "{{ user }}"
-      group: "{{ user }}"
-      mode: '0644'
-
-
-  ###############################################################
-  # DONE
-  ###############################################################
-
-  - name: Finished setup
-    debug:
-      msg: "COMPLETE — reboot recommended for docker + fish activation."
+    - name: Final summary
+      ansible.builtin.debug:
+        msg: |
+          ✅ Arch BlackArch pentest workstation ready.
+          🧰 Tools dir: {{ tools_dir }}
+          🐚 Shell: fish (log out / log in to use)
+          🐳 Docker: enabled (log out / log in for group)
+          📦 AUR apps installed via yay without prompts.
 
