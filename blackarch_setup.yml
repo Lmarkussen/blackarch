@@ -29,6 +29,7 @@
         name:
           - base-devel
           - go
+          - grc
           - wget
           - curl
           - unzip
