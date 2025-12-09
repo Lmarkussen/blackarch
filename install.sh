@@ -6,7 +6,8 @@ echo "[*] Updating pacman and installing requirements..."
 
 sudo pacman --noconfirm -Syyu
 
-sudo pacman --noconfirm --needed -S git ansible reflector
+sudo pacman --noconfirm --needed -S git ansible reflector base-devel
+
 
 # Make sure pacman DB isn't locked
 if [[ -e /var/lib/pacman/db.lck ]]; then
