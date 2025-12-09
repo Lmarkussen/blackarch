@@ -1,11 +1,14 @@
 ---
-- name: Setup Arch with BlackArch, packages, and tool repos
+- name: Setup Arch with BlackArch and pentest tooling
   hosts: localhost
   become: yes
   become_method: sudo
   become_user: root
 
   vars:
+    user: "{{ ansible_env.SUDO_USER }}"
+    user_home: "/home/{{ ansible_env.SUDO_USER }}"
+    tools_dir: "/home/{{ ansible_env.SUDO_USER }}/tools"
 
     pacman_packages:
       - nmap
@@ -14,123 +17,208 @@
       - jq
       - metasploit
       - bloodhound
-      - neo4j
-      - ghostty
-      - brave-bin
-      - burpsuite
-      - slack-desktop
       - virtualbox
       - signal-desktop
       - qbittorrent
-      - wps-office
       - dbeaver
       - thunar
       - thunar-archive-plugin
+      - go
+      - rust
+      - base-devel
+      - fish
+      - tmux
+      - grc
+      - docker
+      - docker-compose
+      - fzf
+
+    aur_packages:
+      - brave-bin
+      - burpsuite
+      - slack-desktop
+      - extension-manager
 
     flatpak_packages:
+      - wps.Office
       - md.obsidian.Obsidian
       - com.brave.Browser
       - com.proton.pass
       - org.signal.Signal
-      - com.github.zocker_160.Obfuscate   # obfuscation tool
+      - com.github.zocker_160.Obfuscate
 
     github_tools:
       - repo: https://github.com/ropnop/kerbrute.git
-        dest: /opt/kerbrute
+        name: kerbrute
       - repo: https://github.com/carlospolop/PEASS-ng.git
-        dest: /opt/peass
+        name: PEASS-ng
       - repo: https://github.com/samratashok/nishang.git
-        dest: /opt/nishang
+        name: nishang
       - repo: https://github.com/lefayjey/linWinPwn.git
-        dest: /opt/linWinPwn
+        name: linWinPwn
       - repo: https://github.com/garrettfoster13/sccmhunter.git
-        dest: /opt/sccmhunter
+        name: sccmhunter
       - repo: https://github.com/MWR-CyberSec/PXEThief.git
-        dest: /opt/PXEThief
+        name: PXEThief
       - repo: https://github.com/SpecterOps/bloodhound-cli.git
-        dest: /opt/bloodhound-cli
+        name: bloodhound-cli
       - repo: https://github.com/Lmarkussen/EvilTelnet.git
-        dest: /opt/EvilTelnet
+        name: EvilTelnet
       - repo: https://github.com/Lmarkussen/EvilParser.git
-        dest: /opt/EvilParser
+        name: EvilParser
       - repo: https://github.com/Lmarkussen/EvilFTP.git
-        dest: /opt/EvilFTP
+        name: EvilFTP
       - repo: https://github.com/Lmarkussen/Bruteforce_wordlist_nor.git
-        dest: /opt/Bruteforce_wordlist_nor
+        name: Bruteforce_wordlist_nor
+      - repo: https://github.com/danielmiessler/SecLists.git
+        name: SecLists
+
 
   tasks:
 
-    #####################################################################
-    #   BLACKARCH REPOSITORY
-    #####################################################################
-    - name: Install prerequisites
+    #################################################################
+    # MIRRORLIST
+    #################################################################
+    - name: Install reflector
       community.general.pacman:
-        name:
-          - curl
-          - wget
+        name: reflector
         state: present
-        update_cache: yes
 
-    - name: Download BlackArch bootstrap script
-      ansible.builtin.get_url:
-        url: https://blackarch.org/strap.sh
-        dest: /root/strap.sh
-        mode: '0700'
-
-    - name: Install BlackArch repo
-      ansible.builtin.shell: /root/strap.sh
-      args:
-        creates: /etc/pacman.d/blackarch-mirrorlist
+    - name: Generate fresh Arch Mirrorlist
+      ansible.builtin.shell: reflector --latest 20 --sort rate --save /etc/pacman.d/mirrorlist
 
 
-    #####################################################################
-    #   PACMAN PACKAGES
-    #####################################################################
-    - name: Update pacman cache
-      community.general.pacman:
-        update_cache: yes
-
+    #################################################################
+    # PACMAN PACKAGES
+    #################################################################
     - name: Install pacman packages
       community.general.pacman:
         name: "{{ pacman_packages }}"
         state: present
+        update_cache: yes
 
 
-    #####################################################################
-    #   FLATPAK PACKAGES
-    #####################################################################
-    - name: Install flatpak
-      community.general.pacman:
-        name: flatpak
-        state: present
+    #################################################################
+    # DOCKER SETUP
+    #################################################################
+    - name: Enable and start Docker daemon
+      ansible.builtin.systemd:
+        name: docker
+        enabled: yes
+        state: started
 
+    - name: Add user to docker group
+      ansible.builtin.user:
+        name: "{{ user }}"
+        groups: docker
+        append: yes
+
+    - name: Notify user
+      ansible.builtin.debug:
+        msg: "You MUST log out and back in for docker group to take effect!"
+
+
+    #################################################################
+    # INSTALL YAY
+    #################################################################
+    - name: Clone yay repo
+      become: no
+      ansible.builtin.git:
+        repo: https://aur.archlinux.org/yay.git
+        dest: "{{ user_home }}/yay"
+
+    - name: Build yay
+      become: no
+      ansible.builtin.shell: |
+        cd {{ user_home }}/yay
+        makepkg --noconfirm -si
+      args:
+        creates: /usr/bin/yay
+
+
+    #################################################################
+    # AUR PACKAGES
+    #################################################################
+    - name: Install AUR packages
+      become: no
+      ansible.builtin.shell: yay -S --noconfirm {{ item }}
+      loop: "{{ aur_packages }}"
+
+
+    #################################################################
+    # FLATPAK
+    #################################################################
     - name: Add flathub repo
       ansible.builtin.shell: |
         flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
     - name: Install flatpak packages
-      ansible.builtin.shell: "flatpak install -y flathub {{ item }}"
+      ansible.builtin.shell: |
+        flatpak install -y flathub {{ item }}
       loop: "{{ flatpak_packages }}"
 
 
-    #####################################################################
-    #   GITHUB REPOS
-    #####################################################################
-    - name: Install git
-      community.general.pacman:
-        name: git
-        state: present
-
-    - name: Clone GitHub tools
-      ansible.builtin.git:
-        repo: "{{ item.repo }}"
-        dest: "{{ item.dest }}"
-        version: master
-      loop: "{{ github_tools }}"
-
-    - name: Set perm 755 recursively on /opt tools
+    #################################################################
+    # GITHUB TOOLS
+    #################################################################
+    - name: Create tools dir
       ansible.builtin.file:
-        path: "{{ item.dest }}"
-        recurse: yes
+        path: "{{ tools_dir }}"
+        state: directory
+        owner: "{{ user }}"
+        group: "{{ user }}"
         mode: "0755"
+
+    - name: Clone tools (depth 1 if SecLists)
+      become: no
+      ansible.builtin.shell: |
+        git clone --depth 1 {{ item.repo }} {{ tools_dir }}/{{ item.name }}
       loop: "{{ github_tools }}"
+
+    - name: Fix permissions on tools
+      ansible.builtin.file:
+        path: "{{ tools_dir }}"
+        recurse: yes
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: "0755"
+
+
+    #################################################################
+    # FISH SHELL
+    #################################################################
+    - name: Set fish as default shell
+      ansible.builtin.shell: |
+        chsh -s /usr/bin/fish {{ user }}
+
+    - name: Ensure fish config dir exists
+      become: no
+      ansible.builtin.file:
+        path: "{{ user_home }}/.config/fish"
+        state: directory
+
+    - name: Copy fish config
+      ansible.builtin.copy:
+        src: config.fish
+        dest: "{{ user_home }}/.config/fish/config.fish"
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: "0644"
+
+
+    #################################################################
+    # TMUX
+    #################################################################
+    - name: Ensure tmux config dir exists
+      ansible.builtin.file:
+        path: "{{ user_home }}/.config/tmux"
+        state: directory
+
+    - name: Copy tmux config
+      ansible.builtin.copy:
+        src: tmux.conf
+        dest: "{{ user_home }}/.config/tmux/tmux.conf"
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: "0644"
+
