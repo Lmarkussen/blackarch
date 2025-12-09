@@ -3,24 +3,75 @@
   hosts: localhost
   become: true
   vars:
-    user: lars
-    user_home: "/home/lars"
+    user: "{{ lookup('env','SUDO_USER') | default(lookup('env','USER')) }}"
+    user_home: "/home/{{ user }}"
+    tools_dir: "{{ user_home }}/tools"
+    wallpaper_src: "{{ playbook_dir }}/wallpaper.jpg"
+    wallpaper_dst: "{{ user_home }}/Pictures/wallpaper.jpg"
 
   tasks:
 
   ###############################################################
-  # PACMAN PACKAGES
+  # INITIAL PACMAN SYNC
+  ###############################################################
+  - name: Update pacman cache before anything else
+    ansible.builtin.pacman:
+      update_cache: yes
+
+  ###############################################################
+  # ENABLE BLACKARCH REPO
+  ###############################################################
+  - name: Download BlackArch installer
+    ansible.builtin.get_url:
+      url: https://blackarch.org/strap.sh
+      dest: /tmp/strap.sh
+      mode: '0755'
+
+  - name: Run BlackArch installer
+    ansible.builtin.command: /tmp/strap.sh
+
+  - name: Refresh pacman cache after enabling repo
+    ansible.builtin.pacman:
+      update_cache: yes
+
+  ###############################################################
+  # INSTALL YAY DEPENDENCIES
+  ###############################################################
+  - name: Install base-devel and git for yay build
+    ansible.builtin.pacman:
+      name:
+        - base-devel
+        - git
+      state: present
+
+  ###############################################################
+  # BUILD AND INSTALL YAY
+  ###############################################################
+  - name: Clone yay
+    become: false
+    ansible.builtin.git:
+      repo: https://aur.archlinux.org/yay.git
+      dest: "{{ user_home }}/yay"
+
+  - name: Build yay (as user)
+    become: false
+    ansible.builtin.command:
+      cmd: makepkg --noconfirm -si
+    args:
+      chdir: "{{ user_home }}/yay"
+
+  ###############################################################
+  # MAIN PACMAN PACKAGES
   ###############################################################
   - name: Install pentest packages (pacman)
     ansible.builtin.pacman:
       name:
-        - base-devel
+        - python-pip
+        - python-pipx
         - go
         - wget
         - curl
         - unzip
-        - python-pip
-        - python-pipx
         - gobuster
         - hashcat
         - john
@@ -37,66 +88,39 @@
         - gowitness
         - evil-winrm
       state: present
-      update_cache: true
+      update_cache: yes
 
   ###############################################################
-  # YAY BUILD & INSTALL
+  # AUR PACKAGES
   ###############################################################
-  - name: Clone yay
-    ansible.builtin.git:
-      repo: "https://aur.archlinux.org/yay.git"
-      dest: "{{ user_home }}/yay"
-      clone: yes
-    become_user: "{{ user }}"
-
-  - name: Build yay
-    ansible.builtin.command:
-      cmd: "makepkg --noconfirm -si"
-      chdir: "{{ user_home }}/yay"
-    become_user: "{{ user }}"
-    environment:
-      PKGDEST: "{{ user_home }}/yay"
+  - name: Install AUR packages with yay
+    become: false
+    ansible.builtin.command: >
+      yay -S --noconfirm --needed
+      brave-bin
+      burpsuite
+      slack-desktop
+      extension-manager
 
   ###############################################################
-  # AUR via yay (BRAVE)
+  # CREATE TOOLS DIR
   ###############################################################
-  - name: Install brave-bin (yay)
-    ansible.builtin.command:
-      cmd: "yay -S --noconfirm --needed brave-bin"
-    become_user: "{{ user }}"
+  - name: Ensure tools directory exists
+    ansible.builtin.file:
+      path: "{{ tools_dir }}"
+      state: directory
+      owner: "{{ user }}"
+      group: "{{ user }}"
 
   ###############################################################
-  # AUR via yay (BURP)
-  ###############################################################
-  - name: Install burpsuite (yay)
-    ansible.builtin.command:
-      cmd: "yay -S --noconfirm --needed burpsuite"
-    become_user: "{{ user }}"
-
-  ###############################################################
-  # AUR via yay (SLACK)
-  ###############################################################
-  - name: Install slack-desktop (yay)
-    ansible.builtin.command:
-      cmd: "yay -S --noconfirm --needed slack-desktop"
-    become_user: "{{ user }}"
-
-  ###############################################################
-  # AUR via yay (Extension Manager)
-  ###############################################################
-  - name: Install extension-manager (yay)
-    ansible.builtin.command:
-      cmd: "yay -S --noconfirm --needed extension-manager"
-    become_user: "{{ user }}"
-
-  ###############################################################
-  # CLONE GITHUB TOOLS
+  # GIT REPO TOOLS
   ###############################################################
   - name: Clone pentest repos
+    become: false
     ansible.builtin.git:
       repo: "{{ item }}"
-      dest: "{{ user_home }}/tools/{{ item.split('/')[-1] }}"
-    with_items:
+      dest: "{{ tools_dir }}/{{ item | basename }}"
+    loop:
       - https://github.com/lefayjey/linWinPwn
       - https://github.com/garrettfoster13/sccmhunter
       - https://github.com/MWR-CyberSec/PXEThief
@@ -106,73 +130,61 @@
       - https://github.com/Lmarkussen/EvilFTP
       - https://github.com/Lmarkussen/Bruteforce_wordlist_nor
       - https://github.com/OleFredrik1/remoteKrbRelayx
-    become_user: "{{ user }}"
 
   ###############################################################
-  # WALLPAPER
+  # FONTS & WALLPAPER
   ###############################################################
-  - name: Ensure Pictures directory exists
+  - name: Create pictures directory
     ansible.builtin.file:
       path: "{{ user_home }}/Pictures"
       state: directory
       owner: "{{ user }}"
       group: "{{ user }}"
 
-  - name: Copy wallpaper locally
+  - name: Copy wallpaper from repo
     ansible.builtin.copy:
-      src: "wallpaper.jpg"
-      dest: "{{ user_home }}/Pictures/wallpaper.jpg"
+      src: "{{ wallpaper_src }}"
+      dest: "{{ wallpaper_dst }}"
       owner: "{{ user }}"
       group: "{{ user }}"
-      mode: "0644"
+
+  - name: Install Hack Nerd Font zip
+    ansible.builtin.unarchive:
+      src: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Hack.zip
+      dest: /usr/share/fonts
+      remote_src: yes
+
+  - name: Update font cache
+    ansible.builtin.command: fc-cache -f -v
 
   ###############################################################
-  # GNOME EXTENSIONS
+  # GNOME EXTENSIONS + THEME
   ###############################################################
-  - name: Install gnome extensions (meta)
+  - name: Install GNOME extension manager (yay)
+    become: false
+    ansible.builtin.command: yay -S --noconfirm extension-manager
+
+  - name: Download Dracula theme
+    ansible.builtin.git:
+      repo: https://github.com/dracula/gtk.git
+      dest: "{{ user_home }}/.themes/Dracula"
+    become: false
+
+  - name: Set GTK theme
+    become: false
+    ansible.builtin.command:
+      cmd: gsettings set org.gnome.desktop.interface gtk-theme 'Dracula'
+
+  ###############################################################
+  # FISH SHELL CONFIG
+  ###############################################################
+  - name: Install fish shell
     ansible.builtin.pacman:
-      name: gnome-shell-extensions
+      name: fish
       state: present
 
-  ###############################################################
-  # FONTS
-  ###############################################################
-  - name: Ensure fonts dir exists
-    ansible.builtin.file:
-      path: "/usr/share/fonts/Hack"
-      state: directory
-
-  - name: Install Hack Nerd Font
-    ansible.builtin.unarchive:
-      src: "Hack.zip"
-      dest: "/usr/share/fonts/Hack"
-      remote_src: false
-
-  - name: Rebuild font cache
-    ansible.builtin.command: fc-cache -fv
-
-  ###############################################################
-  # GNOME THEMES AND SETTINGS
-  ###############################################################
-  - name: Set wallpaper
-    become_user: "{{ user }}"
-    ansible.builtin.command:
-      cmd: "gsettings set org.gnome.desktop.background picture-uri 'file://{{ user_home }}/Pictures/wallpaper.jpg'"
-
-  - name: Monospace font setting
-    become_user: "{{ user }}"
-    ansible.builtin.command:
-      cmd: "gsettings set org.gnome.desktop.interface monospace-font-name 'Hack Nerd Font 11'"
-
-  - name: UI font setting
-    become_user: "{{ user }}"
-    ansible.builtin.command:
-      cmd: "gsettings set org.gnome.desktop.interface font-name 'Hack Nerd Font 11'"
-
-  ###############################################################
-  # DONE
-  ###############################################################
-  - name: Script finished!
-    ansible.builtin.debug:
-      msg: "Arch pentest setup finished successfully 🚀"
+  - name: Change shell to fish for user
+    ansible.builtin.user:
+      name: "{{ user }}"
+      shell: /usr/bin/fish
 
