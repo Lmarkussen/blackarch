@@ -13,9 +13,7 @@
   # BLACKARCH REPO
   ###############################################################
   - name: Install BlackArch repository
-    command: "curl -s https://blackarch.org/strap.sh | bash"
-    args:
-      warn: false
+    shell: "curl -s https://blackarch.org/strap.sh | bash"
 
   ###############################################################
   # PACMAN PENTEST PACKAGES
@@ -44,7 +42,7 @@
   ###############################################################
   # BUILD AND INSTALL YAY
   ###############################################################
-  - name: Remove any existing yay build
+  - name: Remove existing yay build
     file:
       path: "{{ user_home }}/yay"
       state: absent
@@ -53,7 +51,6 @@
     ansible.builtin.git:
       repo: https://aur.archlinux.org/yay.git
       dest: "{{ user_home }}/yay"
-    become: true
 
   - name: Build yay (as user)
     command: makepkg --noconfirm -si --needed
@@ -62,7 +59,7 @@
       chdir: "{{ user_home }}/yay"
 
   ###############################################################
-  # AUR PACKAGES USING YAY (RUN AS ROOT!)
+  # AUR PACKAGES USING YAY (ROOT INSTALL)
   ###############################################################
   - name: Install AUR packages with yay (as root)
     become: true
@@ -112,14 +109,14 @@
       group: "{{ user }}"
 
   ###############################################################
-  # GNOME EXTENSIONS
+  # GNOME EXTENSION MANAGER
   ###############################################################
-  - name: Install extension manager (verified)
+  - name: Install extension manager
     become: true
     command: yay -S --noconfirm extension-manager
 
   ###############################################################
-  # GNOME THEMING (DRACULA)
+  # DRACULA THEME
   ###############################################################
   - name: Create local theme folder
     file:
@@ -132,17 +129,5 @@
   - name: Download Dracula GTK
     become_user: "{{ user }}"
     git:
-      repo: https://github.com/dracula/gtk.git
-      dest: "{{ user_home }}/.themes/Dracula"
-
-  - name: Set GTK theme
-    become_user: "{{ user }}"
-    command: gsettings set org.gnome.desktop.interface gtk-theme "Dracula"
-
-  ###############################################################
-  # SET WALLPAPER
-  ###############################################################
-  - name: Set wallpaper (Wayland)
-    become_user: "{{ user }}"
-    command: gsettings set org.gnome.desktop.background picture-uri-dark "file://{{ wallpaper_dest }}"
+      re
 
