@@ -135,5 +135,5 @@
 #################################################################
     - name: Finished
       ansible.builtin.debug:
-        msg: "Setup completed. AD pentesting workstation ready."
+        msg: "Setup completed. "
 
