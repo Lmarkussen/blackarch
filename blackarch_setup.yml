@@ -1,72 +1,67 @@
 ---
 - name: Setup Arch pentest workstation
   hosts: localhost
-  connection: local
   become: true
-
   vars:
-    user: "{{ lookup('env','SUDO_USER') or lookup('env','USER') }}"
-    user_home: "/home/{{ user }}"
-    pics_dir: "{{ user_home }}/Pictures"
-    repos_dir: "{{ user_home }}/repos"
+    user: "{{ ansible_env.SUDO_USER }}"
+    user_home: "/home/{{ ansible_env.SUDO_USER }}"
+    wallpaper_src: "{{ playbook_dir }}/wallpaper.jpg"
+    wallpaper_dest: "{{ user_home }}/Pictures/wallpaper.jpg"
 
   tasks:
+  ###############################################################
+  # BLACKARCH REPO
+  ###############################################################
+  - name: Download BlackArch strap script
+    ansible.builtin.get_url:
+      url: https://blackarch.org/strap.sh
+      dest: /tmp/strap.sh
+      mode: '0755'
+
+  - name: Install BlackArch repository
+    command: bash /tmp/strap.sh
 
   ###############################################################
-  # BLACKARCH REPOSITORY
+  # BASE SYSTEM PACKAGES
   ###############################################################
-  - name: Install BlackArch repo script
-    pacman:
-      name: blackarch-installer
-      state: present
-    ignore_errors: true
-
-  - name: Run BlackArch installer
-    shell: |
-      curl -O https://blackarch.org/strap.sh
-      chmod +x strap.sh
-      ./strap.sh
-    args:
-      chdir: "{{ user_home }}"
-    ignore_errors: true
-
-  ###############################################################
-  # INITIAL PACMAN INSTALLS (before yay)
-  ###############################################################
-  - name: Install required packages before yay
-    pacman:
+  - name: Install base system reqs (pacman)
+    ansible.builtin.pacman:
+      update_cache: true
       name:
         - base-devel
         - go
         - wget
         - curl
         - unzip
-        - python-pip
-        - python-pipx
-        - flatpak
-      state: present
-      update_cache: true
+        - git
+        - reflector
 
   ###############################################################
-  # BUILD AND INSTALL YAY
+  # SETUP YAY
   ###############################################################
   - name: Clone yay
+    become_user: "{{ user }}"
     ansible.builtin.git:
       repo: "https://aur.archlinux.org/yay.git"
       dest: "{{ user_home }}/yay"
-    become_user: "{{ user }}"
+      update: yes
 
-  - name: Build yay
-    shell: makepkg --noconfirm -si
+  - name: Build yay (no install here)
+    become_user: "{{ user }}"
+    command: makepkg --noconfirm -s
     args:
       chdir: "{{ user_home }}/yay"
-    become_user: "{{ user }}"
+
+  - name: Install yay package (as root)
+    command: pacman -U --noconfirm yay-*.pkg.tar.*
+    args:
+      chdir: "{{ user_home }}/yay"
 
   ###############################################################
-  # POST-YAY PACMAN PACKAGES
+  # PENTEST PACKAGES (pacman)
   ###############################################################
   - name: Install pentest packages (pacman)
-    pacman:
+    ansible.builtin.pacman:
       name:
         - gobuster
         - hashcat
@@ -85,149 +80,102 @@
         - evil-winrm
         - tmux
         - fish
-        - grc
-        - docker
-        - docker-compose
       state: present
+      update_cache: true
+
+  - name: Set fish as default shell
+    command: chsh -s /usr/bin/fish "{{ user }}"
 
   ###############################################################
-  # YAY AUR PACKAGES
+  # AUR PACKAGES VIA YAY
   ###############################################################
   - name: Install AUR packages with yay
     become_user: "{{ user }}"
-    shell: yay -S --noconfirm --needed brave-bin burpsuite slack-desktop extension-manager
+    command: yay -S --noconfirm --needed brave-bin burpsuite slack-desktop extension-manager flatpak
 
   ###############################################################
-  # DOCKER GROUP
+  # FLATPAKS
   ###############################################################
-  - name: Add user to docker group
-    user:
-      name: "{{ user }}"
-      groups: docker
-      append: true
-
-  - name: Notify user docker login is needed
-    debug:
-      msg: "Log out & back in for Docker changes"
-
-  ###############################################################
-  # GITHUB REPOS
-  ###############################################################
-  - name: Create repo folder
-    file:
-      path: "{{ repos_dir }}"
-      state: directory
-      owner: "{{ user }}"
-      group: "{{ user }}"
-
-  - name: Clone pentest repos
-    ansible.builtin.git:
-      repo: "{{ item }}"
-      dest: "{{ repos_dir }}/{{ item.split('/')[-1] }}"
-      force: yes
-    with_items:
-      - "https://github.com/lefayjey/linWinPwn"
-      - "https://github.com/garrettfoster13/sccmhunter"
-      - "https://github.com/MWR-CyberSec/PXEThief"
-      - "https://github.com/SpecterOps/bloodhound-cli"
-      - "https://github.com/Lmarkussen/EvilTelnet"
-      - "https://github.com/Lmarkussen/EvilParser"
-      - "https://github.com/Lmarkussen/EvilFTP"
-      - "https://github.com/Lmarkussen/Bruteforce_wordlist_nor"
-      - "https://github.com/OleFredrik1/remoteKrbRelayx"
+  - name: Install obfuscate (flatpak)
     become_user: "{{ user }}"
+    command: flatpak install -y app.drey.Obfuscate
 
   ###############################################################
-  # FLATPAK & OBFUSCATE
+  # GNOME EXTENSIONS
   ###############################################################
-  - name: Install Obfuscate (flatpak)
+  - name: Enable user-theme extension
     become_user: "{{ user }}"
-    shell: flatpak install --noninteractive flathub com.github.hluk.copyq
+    command: gsettings set org.gnome.shell.extensions.user-theme name Dracula
 
   ###############################################################
-  # DOTFILES (FISH + TMUX)
+  # WALLPAPER & FONT
   ###############################################################
-  - name: Ensure fish config folder exists
+  - name: Create Pictures folder
     file:
-      path: "{{ user_home }}/.config/fish"
+      path: "{{ user_home }}/Pictures"
       state: directory
       owner: "{{ user }}"
       group: "{{ user }}"
 
-  - name: Copy fish config
+  - name: Copy wallpaper
     copy:
-      src: config.fish
-      dest: "{{ user_home }}/.config/fish/config.fish"
-      owner: "{{ user }}"
-      group: "{{ user }}"
-
-  - name: Ensure tmux config folder exists
-    file:
-      path: "{{ user_home }}/.config/tmux"
-      state: directory
-      owner: "{{ user }}"
-      group: "{{ user }}"
-
-  - name: Copy tmux config
-    copy:
-      src: tmux.conf
-      dest: "{{ user_home }}/.config/tmux/tmux.conf"
-      owner: "{{ user }}"
-      group: "{{ user }}"
-
-  - name: Set shell to fish
-    user:
-      name: "{{ user }}"
-      shell: /usr/bin/fish
-
-  ###############################################################
-  # FONT: NerdFonts Hack
-  ###############################################################
-  - name: Download Hack NerdFont
-    get_url:
-      url: "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Hack.zip"
-      dest: "{{ pics_dir }}/Hack.zip"
-
-  - name: Install NerdFont
-    shell: |
-      unzip -o Hack.zip -d /usr/share/fonts/nerd/
-      fc-cache -fv
-    args:
-      chdir: "{{ pics_dir }}"
-
-  ###############################################################
-  # WALLPAPER (LOCAL)
-  ###############################################################
-  - name: Ensure Pictures dir exists
-    file:
-      path: "{{ pics_dir }}"
-      state: directory
-      owner: "{{ user }}"
-      group: "{{ user }}"
-
-  - name: Copy wallpaper from repo
-    copy:
-      src: wallpaper.jpg
-      dest: "{{ pics_dir }}/wallpaper.jpg"
+      src: "{{ wallpaper_src }}"
+      dest: "{{ wallpaper_dest }}"
+      mode: 0644
       owner: "{{ user }}"
       group: "{{ user }}"
 
   - name: Set wallpaper
     become_user: "{{ user }}"
-    command: gsettings set org.gnome.desktop.background picture-uri "file://{{ pics_dir }}/wallpaper.jpg"
+    command: gsettings set org.gnome.desktop.background picture-uri "file://{{ wallpaper_dest }}"
 
-  ###############################################################
-  # GNOME THEME (DRACULA)
-  ###############################################################
-  - name: Set Dracula interface theme
+  - name: Download Nerd Font
     become_user: "{{ user }}"
-    command: gsettings set org.gnome.desktop.interface gtk-theme 'Dracula'
+    ansible.builtin.get_url:
+      url: "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Hack.zip"
+      dest: "{{ user_home }}/Hack.zip"
+
+  - name: Extract Nerd Font
+    become_user: "{{ user }}"
+    ansible.builtin.unarchive:
+      src: "{{ user_home }}/Hack.zip"
+      dest: "{{ user_home }}/.local/share/fonts"
+      remote_src: true
 
   ###############################################################
-  # FINISHED
+  # GIT TOOL REPOS
   ###############################################################
-  - name: Completion summary
-    debug:
-      msg: "Setup complete. Log out and back in!"
+  - name: Create tools directory
+    file:
+      path: "{{ user_home }}/tools"
+      state: directory
+      owner: "{{ user }}"
+      group: "{{ user }}"
 
+  - name: Clone pentest repos
+    become_user: "{{ user }}"
+    ansible.builtin.git:
+      repo: "{{ item }}"
+      dest: "{{ user_home }}/tools/{{ item | basename }}"
+      update: yes
+    loop:
+      - https://github.com/lefayjey/linWinPwn
+      - https://github.com/garrettfoster13/sccmhunter
+      - https://github.com/MWR-CyberSec/PXEThief
+      - https://github.com/SpecterOps/bloodhound-cli
+      - https://github.com/Lmarkussen/EvilTelnet
+      - https://github.com/Lmarkussen/EvilParser
+      - https://github.com/Lmarkussen/EvilFTP
+      - https://github.com/Lmarkussen/Bruteforce_wordlist_nor
+      - https://github.com/OleFredrik1/remoteKrbRelayx
+
+  ###############################################################
+  # FINAL MESSAGE
+  ###############################################################
+  - name: Final message
+    ansible.builtin.debug:
+      msg: |
+        ✔ Setup Complete!
+        🔒 Logout/Login required for fish shell + docker group
+        🎯 You are now running a fully weaponized pentest workstation.
 
