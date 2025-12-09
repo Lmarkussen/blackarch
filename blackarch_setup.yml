@@ -45,6 +45,7 @@
           - kerbrute
           - dnsutils
           - ffuf
+          - ghostty
           - netexec
           - nmap
           - masscan
@@ -123,6 +124,40 @@
       become_user: "{{ user }}"
 
 #################################################################
+# TMUX CONFIG
+#################################################################
+    - name: Create tmux config directory
+      ansible.builtin.file:
+        path: "{{ user_home }}/.config/tmux"
+        state: directory
+        owner: "{{ user }}"
+        group: "{{ user }}"
+
+    - name: Copy tmux.conf
+      ansible.builtin.copy:
+        src: tmux.conf
+        dest: "{{ user_home }}/.config/tmux/tmux.conf"
+        owner: "{{ user }}"
+        group: "{{ user }}"
+
+#################################################################
+# FISH CONFIG
+#################################################################
+    - name: Create fish config directory
+      ansible.builtin.file:
+        path: "{{ user_home }}/.config/fish"
+        state: directory
+        owner: "{{ user }}"
+        group: "{{ user }}"
+
+    - name: Copy fish config
+      ansible.builtin.copy:
+        src: config.fish
+        dest: "{{ user_home }}/.config/fish/config.fish"
+        owner: "{{ user }}"
+        group: "{{ user }}"
+
+#################################################################
 # SET DEFAULT SHELL TO FISH
 #################################################################
     - name: Set fish default shell
@@ -136,4 +171,5 @@
     - name: Finished
       ansible.builtin.debug:
         msg: "Setup completed. Reboot is recommended"
+
 
