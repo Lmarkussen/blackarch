@@ -7,6 +7,7 @@
     user_home: "/home/{{ user }}"
 
   tasks:
+
 #################################################################
 # BLACKARCH REPO
 #################################################################
@@ -44,6 +45,8 @@
           - kerbrute
           - dnsutils
           - ffuf
+          - netexec
+          - nmap
           - masscan
           - netcat
           - gowitness
@@ -51,60 +54,20 @@
           - tmux
           - fish
         state: present
-        update_cache: true
 
 #################################################################
-# BUILD AND INSTALL YAY
+# CREATE TOOLS DIRECTORY
 #################################################################
-    - name: Create yay dir
-      ansible.builtin.file:
-        path: "{{ user_home }}/yay"
-        state: directory
-        owner: "{{ user }}"
-        group: "{{ user }}"
-        mode: '0755'
-
-    - name: Clone yay
-      ansible.builtin.git:
-        repo: https://aur.archlinux.org/yay.git
-        dest: "{{ user_home }}/yay"
-        force: yes
-      become_user: "{{ user }}"
-
-    - name: Build yay (as user)
-      ansible.builtin.shell: |
-        makepkg --noconfirm --needed -si
-      args:
-        chdir: "{{ user_home }}/yay"
-      become_user: "{{ user }}"
-
-#################################################################
-# AUR PACKAGES WITH YAY
-#################################################################
-    - name: Install AUR packages with yay
-      ansible.builtin.shell: |
-        yay -S --noconfirm --needed brave-bin burpsuite slack-desktop extension-manager flatpak netexec
-      args:
-        chdir: "{{ user_home }}"
-
-#################################################################
-# OBFSUSB (Obfuscate)
-#################################################################
-    - name: Install Obfuscate (flatpak)
-      ansible.builtin.shell: |
-        flatpak install -y flathub com.github.retsuya.Obfuscate
-      ignore_errors: true
-
-#################################################################
-# CLONE REPOS
-#################################################################
-    - name: Create tools directory
+    - name: Create Tools directory
       ansible.builtin.file:
         path: "{{ user_home }}/Tools"
         state: directory
         owner: "{{ user }}"
         group: "{{ user }}"
 
+#################################################################
+# CLONE REPOS
+#################################################################
     - name: Clone pentest repos
       ansible.builtin.git:
         repo: "{{ item }}"
@@ -122,23 +85,21 @@
       become_user: "{{ user }}"
 
 #################################################################
-# FONT INSTALL
+# INSTALL HACK NERD FONT
 #################################################################
     - name: Download Hack Nerd Font
       ansible.builtin.get_url:
         url: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Hack.zip
         dest: "{{ user_home }}/Hack.zip"
-        mode: '0644'
-      become_user: "{{ user }}"
 
-    - name: Create fonts directory
+    - name: Create local fonts directory
       ansible.builtin.file:
         path: "{{ user_home }}/.local/share/fonts"
         state: directory
         owner: "{{ user }}"
         group: "{{ user }}"
 
-    - name: Extract Hack Nerd Font
+    - name: Extract Hack font
       ansible.builtin.unarchive:
         src: "{{ user_home }}/Hack.zip"
         dest: "{{ user_home }}/.local/share/fonts"
@@ -148,7 +109,7 @@
 #################################################################
 # WALLPAPER
 #################################################################
-    - name: Copy local bundled wallpaper
+    - name: Copy bundled wallpaper
       ansible.builtin.copy:
         src: wallpaper.jpg
         dest: "{{ user_home }}/Pictures/wallpaper.jpg"
@@ -162,17 +123,17 @@
       become_user: "{{ user }}"
 
 #################################################################
-# SET FISH DEFAULT
+# SET DEFAULT SHELL TO FISH
 #################################################################
-    - name: Set default shell to fish
+    - name: Set fish default shell
       ansible.builtin.user:
         name: "{{ user }}"
         shell: /usr/bin/fish
 
 #################################################################
-# DONE 🎉
+# DONE
 #################################################################
     - name: Finished
       ansible.builtin.debug:
-        msg: "System ready for AD pentesting. Future you thanks you."
+        msg: "Setup completed. AD pentesting workstation ready."
 
