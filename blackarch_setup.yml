@@ -1,304 +1,178 @@
 ---
-- name: Setup Arch pentest workstation
+- name: BlackArch + Pentest Desktop Setup
   hosts: localhost
   become: true
-  gather_facts: true
-
   vars:
-    # Try to figure out the real user (when running with sudo)
-    user: "{{ lookup('env','SUDO_USER') | default(lookup('env','USER'), true) }}"
+    user: lars
     user_home: "/home/{{ user }}"
-    tools_dir: "{{ user_home }}/tools"
-    wallpaper_src: "{{ playbook_dir }}/wallpaper.jpg"
-    wallpaper_dest: "{{ user_home }}/Pictures/wallpaper.jpg"
-    nerd_font_zip_url: "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Hack.zip"
-    nerd_font_zip_path: "/tmp/Hack.zip"
 
   tasks:
-    #################################################################
-    # DEBUG: WHO AM I RUNNING AS?
-    #################################################################
-    - name: Debug detected user and home
-      ansible.builtin.debug:
-        msg:
-          user: "{{ user }}"
-          user_home: "{{ user_home }}"
-
-    #################################################################
-    # BLACKARCH REPO
-    #################################################################
+#################################################################
+# BLACKARCH REPO
+#################################################################
     - name: Install BlackArch repository
       ansible.builtin.shell: |
         curl -fsSL https://blackarch.org/strap.sh | bash
       args:
         creates: /etc/pacman.d/blackarch-mirrorlist
-        warn: false
 
     - name: Update package databases
       ansible.builtin.pacman:
         update_cache: true
 
-    #################################################################
-    # PACMAN PACKAGES (core + pentest + desktop)
-    #################################################################
-    - name: Install base and pentest packages (pacman)
+#################################################################
+# PACMAN PACKAGES
+#################################################################
+    - name: Install pentest packages (pacman)
       ansible.builtin.pacman:
         name:
-          # build / tooling
           - base-devel
           - go
-          - git
           - wget
           - curl
           - unzip
           - python-pip
           - python-pipx
-
-          # shells / terminal
-          - tmux
-          - fish
-
-          # networking / infra
-          - docker
-          - docker-compose
-          - openvpn
-          - netcat
-          - masscan
-          - ffuf
           - gobuster
-          - dnsutils
-
-          # pentest tools
-          - netexec
           - hashcat
           - john
           - hydra
           - sqlmap
           - impacket
+          - openvpn
           - responder
           - kerbrute
+          - dnsutils
+          - ffuf
+          - masscan
+          - netcat
           - gowitness
           - evil-winrm
-
-          # desktop / apps
-          - flatpak
-          - thunar
-          - thunar-archive-plugin
-          - obsidian
-          - signal-desktop
-          - qbittorrent
-          - dbeaver
+          - tmux
+          - fish
         state: present
+        update_cache: true
 
-    - name: Add user to docker group
-      ansible.builtin.user:
-        name: "{{ user }}"
-        groups: docker
-        append: true
-
-    - name: Notify user about docker group
-      ansible.builtin.debug:
-        msg: "You must log out and back in for docker group membership to take effect."
-
-    #################################################################
-    # BUILD AND INSTALL YAY
-    #################################################################
-    - name: Ensure yay directory is clean
+#################################################################
+# BUILD AND INSTALL YAY
+#################################################################
+    - name: Create yay dir
       ansible.builtin.file:
         path: "{{ user_home }}/yay"
-        state: absent
-
-    - name: Clone yay (as user)
-      become_user: "{{ user }}"
-      ansible.builtin.git:
-        repo: "https://aur.archlinux.org/yay.git"
-        dest: "{{ user_home }}/yay"
-        update: true
-
-    - name: Build yay package (as user, no install)
-      become_user: "{{ user }}"
-      ansible.builtin.command:
-        cmd: makepkg --noconfirm -s
-        chdir: "{{ user_home }}/yay"
-
-    - name: Install yay package (as root)
-      ansible.builtin.shell: |
-        cd "{{ user_home }}/yay" && pacman -U --noconfirm yay-*.pkg.tar.*
-      args:
-        executable: /bin/bash
-
-    #################################################################
-    # AUR PACKAGES VIA YAY
-    #################################################################
-    - name: Install AUR packages with yay (as root)
-      ansible.builtin.shell: |
-        yay -S --noconfirm --needed \
-          brave-bin \
-          burpsuite \
-          slack-desktop \
-          extension-manager
-      args:
-        executable: /bin/bash
-
-    #################################################################
-    # FLATPAK APPS
-    #################################################################
-    - name: Enable Flathub remote
-      ansible.builtin.command:
-        cmd: flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-
-    - name: Install Obfuscate (flatpak)
-      ansible.builtin.command:
-        cmd: flatpak install -y flathub com.belmoussaoui.Obfuscate
-
-    #################################################################
-    # TOOLS DIRECTORY + GIT REPOS
-    #################################################################
-    - name: Ensure tools directory exists
-      ansible.builtin.file:
-        path: "{{ tools_dir }}"
         state: directory
         owner: "{{ user }}"
         group: "{{ user }}"
         mode: '0755'
+
+    - name: Clone yay
+      ansible.builtin.git:
+        repo: https://aur.archlinux.org/yay.git
+        dest: "{{ user_home }}/yay"
+        force: yes
+      become_user: "{{ user }}"
+
+    - name: Build yay (as user)
+      ansible.builtin.shell: |
+        makepkg --noconfirm --needed -si
+      args:
+        chdir: "{{ user_home }}/yay"
+      become_user: "{{ user }}"
+
+#################################################################
+# AUR PACKAGES WITH YAY
+#################################################################
+    - name: Install AUR packages with yay
+      ansible.builtin.shell: |
+        yay -S --noconfirm --needed brave-bin burpsuite slack-desktop extension-manager flatpak netexec
+      args:
+        chdir: "{{ user_home }}"
+
+#################################################################
+# OBFSUSB (Obfuscate)
+#################################################################
+    - name: Install Obfuscate (flatpak)
+      ansible.builtin.shell: |
+        flatpak install -y flathub com.github.retsuya.Obfuscate
+      ignore_errors: true
+
+#################################################################
+# CLONE REPOS
+#################################################################
+    - name: Create tools directory
+      ansible.builtin.file:
+        path: "{{ user_home }}/Tools"
+        state: directory
+        owner: "{{ user }}"
+        group: "{{ user }}"
 
     - name: Clone pentest repos
-      become_user: "{{ user }}"
       ansible.builtin.git:
         repo: "{{ item }}"
-        dest: "{{ tools_dir }}/{{ item | basename }}"
-        update: true
+        dest: "{{ user_home }}/Tools/{{ item.split('/')[-1] }}"
       loop:
-        - "https://github.com/lefayjey/linWinPwn"
-        - "https://github.com/garrettfoster13/sccmhunter"
-        - "https://github.com/MWR-CyberSec/PXEThief"
-        - "https://github.com/SpecterOps/bloodhound-cli"
-        - "https://github.com/Lmarkussen/EvilTelnet"
-        - "https://github.com/Lmarkussen/EvilParser"
-        - "https://github.com/Lmarkussen/EvilFTP"
-        - "https://github.com/Lmarkussen/Bruteforce_wordlist_nor"
-        - "https://github.com/OleFredrik1/remoteKrbRelayx"
-
-    #################################################################
-    # SHELL CONFIG (fish + tmux)
-    #################################################################
-    - name: Ensure fish config directory exists
-      ansible.builtin.file:
-        path: "{{ user_home }}/.config/fish"
-        state: directory
-        owner: "{{ user }}"
-        group: "{{ user }}"
-        mode: '0755'
-
-    - name: Copy fish config
-      ansible.builtin.copy:
-        src: "{{ playbook_dir }}/config.fish"
-        dest: "{{ user_home }}/.config/fish/config.fish"
-        owner: "{{ user }}"
-        group: "{{ user }}"
-        mode: '0644'
-
-    - name: Ensure tmux config directory exists
-      ansible.builtin.file:
-        path: "{{ user_home }}/.config/tmux"
-        state: directory
-        owner: "{{ user }}"
-        group: "{{ user }}"
-        mode: '0755'
-
-    - name: Copy tmux config
-      ansible.builtin.copy:
-        src: "{{ playbook_dir }}/tmux.conf"
-        dest: "{{ user_home }}/.config/tmux/tmux.conf"
-        owner: "{{ user }}"
-        group: "{{ user }}"
-        mode: '0644'
-
-    - name: Set default shell to fish for user
-      ansible.builtin.user:
-        name: "{{ user }}"
-        shell: /usr/bin/fish
-
-    #################################################################
-    # WALLPAPER
-    #################################################################
-    - name: Ensure Pictures directory exists
-      ansible.builtin.file:
-        path: "{{ user_home }}/Pictures"
-        state: directory
-        owner: "{{ user }}"
-        group: "{{ user }}"
-        mode: '0755'
-
-    - name: Copy wallpaper from repo
-      ansible.builtin.copy:
-        src: "{{ wallpaper_src }}"
-        dest: "{{ wallpaper_dest }}"
-        owner: "{{ user }}"
-        group: "{{ user }}"
-        mode: '0644'
-
-    - name: Set wallpaper with gsettings (Wayland GNOME)
+        - https://github.com/lefayjey/linWinPwn
+        - https://github.com/garrettfoster13/sccmhunter
+        - https://github.com/MWR-CyberSec/PXEThief
+        - https://github.com/SpecterOps/bloodhound-cli
+        - https://github.com/Lmarkussen/EvilTelnet
+        - https://github.com/Lmarkussen/EvilParser
+        - https://github.com/Lmarkussen/EvilFTP
+        - https://github.com/Lmarkussen/Bruteforce_wordlist_nor
+        - https://github.com/OleFredrik1/remoteKrbRelayx
       become_user: "{{ user }}"
-      ansible.builtin.shell: |
-        gsettings set org.gnome.desktop.background picture-uri "file://{{ wallpaper_dest }}"
-        gsettings set org.gnome.desktop.background picture-uri-dark "file://{{ wallpaper_dest }}"
-      args:
-        executable: /bin/bash
-      failed_when: false   # don't kill the play if no GNOME session is active
 
-    #################################################################
-    # HACK NERD FONT
-    #################################################################
-    - name: Download Hack Nerd Font zip
+#################################################################
+# FONT INSTALL
+#################################################################
+    - name: Download Hack Nerd Font
       ansible.builtin.get_url:
-        url: "{{ nerd_font_zip_url }}"
-        dest: "{{ nerd_font_zip_path }}"
+        url: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Hack.zip
+        dest: "{{ user_home }}/Hack.zip"
         mode: '0644'
+      become_user: "{{ user }}"
 
-    - name: Ensure user fonts directory exists
+    - name: Create fonts directory
       ansible.builtin.file:
         path: "{{ user_home }}/.local/share/fonts"
         state: directory
         owner: "{{ user }}"
         group: "{{ user }}"
-        mode: '0755'
 
-    - name: Unzip Hack Nerd Font to user fonts
-      become_user: "{{ user }}"
+    - name: Extract Hack Nerd Font
       ansible.builtin.unarchive:
-        src: "{{ nerd_font_zip_path }}"
+        src: "{{ user_home }}/Hack.zip"
         dest: "{{ user_home }}/.local/share/fonts"
-        remote_src: true
-
-    - name: Refresh font cache
-      ansible.builtin.command:
-        cmd: fc-cache -f
-      changed_when: false
-
-    - name: Try to set Hack Nerd Font as default (GNOME)
+        remote_src: yes
       become_user: "{{ user }}"
-      ansible.builtin.shell: |
-        gsettings set org.gnome.desktop.interface font-name 'Hack Nerd Font 11'
-        gsettings set org.gnome.desktop.interface monospace-font-name 'Hack Nerd Font Mono 11'
-      args:
-        executable: /bin/bash
-      failed_when: false   # don't fail if no schema / no GNOME session
 
-    #################################################################
-    # FINAL SUMMARY
-    #################################################################
-    - name: Summary of what was done
+#################################################################
+# WALLPAPER
+#################################################################
+    - name: Copy local bundled wallpaper
+      ansible.builtin.copy:
+        src: wallpaper.jpg
+        dest: "{{ user_home }}/Pictures/wallpaper.jpg"
+        owner: "{{ user }}"
+        group: "{{ user }}"
+
+    - name: Set wallpaper
+      ansible.builtin.shell: |
+        gsettings set org.gnome.desktop.background picture-uri "file://{{ user_home }}/Pictures/wallpaper.jpg"
+        gsettings set org.gnome.desktop.background picture-uri-dark "file://{{ user_home }}/Pictures/wallpaper.jpg"
+      become_user: "{{ user }}"
+
+#################################################################
+# SET FISH DEFAULT
+#################################################################
+    - name: Set default shell to fish
+      ansible.builtin.user:
+        name: "{{ user }}"
+        shell: /usr/bin/fish
+
+#################################################################
+# DONE 🎉
+#################################################################
+    - name: Finished
       ansible.builtin.debug:
-        msg:
-          - "BlackArch repo installed and pacman DB updated."
-          - "Core & pentest tools installed via pacman (netexec, hashcat, responder, kerbrute, etc.)."
-          - "yay built from AUR and installed."
-          - "AUR packages installed with yay: brave-bin, burpsuite, slack-desktop, extension-manager."
-          - "Flatpak + Obfuscate installed."
-          - "Git repos cloned into {{ tools_dir }}."
-          - "fish + tmux configs deployed; default shell set to fish."
-          - "Wallpaper copied to {{ wallpaper_dest }} (gsettings attempted)."
-          - "Hack Nerd Font installed to ~/.local/share/fonts and font cache refreshed."
-          - "Remember to log out/in for docker group and fish shell changes to fully apply."
+        msg: "System ready for AD pentesting. Future you thanks you."
 
