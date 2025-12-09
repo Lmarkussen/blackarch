@@ -2,6 +2,8 @@
 - name: Setup Arch with BlackArch, packages, and tool repos
   hosts: localhost
   become: yes
+  become_method: sudo
+  become_user: root
 
   vars:
 
