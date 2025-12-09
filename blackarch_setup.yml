@@ -72,10 +72,10 @@
 
 
   ###############################################################
-  # PACMAN PACKAGES
+  # PACMAN PACKAGES  (netcat now correct)
   ###############################################################
 
-  - name: Install main pentest packages
+  - name: Install pentest packages (pacman)
     pacman:
       name:
         - tmux
@@ -90,6 +90,12 @@
         - ffuf
         - openvpn
         - responder
+        - gobuster
+        - evil-winrm
+        - gowitness
+        - masscan
+        - netcat
+        - certipy
       state: present
 
 
@@ -136,7 +142,7 @@
 
 
   ###############################################################
-  # PIPX (correct arch install)
+  # PIPX
   ###############################################################
 
   - name: Install pipx
@@ -146,7 +152,7 @@
 
 
   ###############################################################
-  # CREATE ~/tools DIR
+  # CREATE ~/tools
   ###############################################################
 
   - name: Create tools directory
@@ -159,7 +165,7 @@
 
 
   ###############################################################
-  # CLONE OFFENSIVE TOOLS
+  # CLONE GITHUB TOOLS
   ###############################################################
 
   - name: Clone offensive tools into ~/tools
@@ -177,10 +183,11 @@
       - https://github.com/Lmarkussen/EvilParser.git
       - https://github.com/Lmarkussen/EvilFTP.git
       - https://github.com/Lmarkussen/Bruteforce_wordlist_nor.git
+      - https://github.com/OleFredrik1/remoteKrbRelayx.git
 
 
   ###############################################################
-  # SHELL CONFIG
+  # FISH CONFIG
   ###############################################################
 
   - name: Set fish default shell
@@ -188,7 +195,7 @@
       name: "{{ user }}"
       shell: /usr/bin/fish
 
-  - name: Ensure fish config directory
+  - name: Ensure fish config directory exists
     file:
       path: "{{ user_home }}/.config/fish"
       state: directory
@@ -211,5 +218,5 @@
 
   - name: Finished setup
     debug:
-      msg: "COMPLETE — reboot recommended for full fish+docker activation."
+      msg: "COMPLETE — reboot recommended for docker + fish activation."
 
