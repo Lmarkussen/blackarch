@@ -15,7 +15,7 @@ clear
 
 echo -e "${CYAN}${BOLD}"
 echo "==============================================================="
-echo "              🔥 BlackArch Setup Installer 🔥"
+echo "              🔥 EvilArch Desktop Installer 🔥"
 echo "==============================================================="
 echo -e "${NC}"
 
