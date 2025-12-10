@@ -122,7 +122,7 @@
     - name: Set GNOME monospace font to Hack Nerd Font
       become_user: "{{ user }}"
       ansible.builtin.shell: |
-        gsettings set org.gnome.desktop.interface monospace-font-name 'Hack Nerd Font Mono 11'
+        gsettings set org.gnome.desktop.interface monospace-font-name 'Hack Nerd Font Regular 11'
 
     - name: Set GNOME interface font to Hack Nerd Font
       become_user: "{{ user }}"
