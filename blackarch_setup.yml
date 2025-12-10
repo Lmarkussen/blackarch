@@ -24,7 +24,7 @@
 #################################################################
 # PACMAN PACKAGES
 #################################################################
-    - name: Install pentest packages (pacman)
+    - name: Install applications (pacman)
       ansible.builtin.pacman:
         name:
           - base-devel
