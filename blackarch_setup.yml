@@ -180,6 +180,23 @@
         group: "{{ user }}"
 
 #################################################################
+# GHOSTTY CONFIG
+#################################################################
+    - name: Create ghostty config directory
+      ansible.builtin.file:
+        path: "{{ user_home }}/.config/ghostty"
+        state: directory
+        owner: "{{ user }}"
+        group: "{{ user }}"
+
+    - name: Copy Ghostty config
+      ansible.builtin.copy:
+        src: ghostty.conf       # <-- your file next to playbook
+        dest: "{{ user_home }}/.config/ghostty/config"
+        owner: "{{ user }}"
+        group: "{{ user }}"
+
+#################################################################
 # SET DEFAULT SHELL TO FISH
 #################################################################
     - name: Set fish default shell
