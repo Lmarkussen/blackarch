@@ -199,6 +199,15 @@
         group: "{{ user }}"
 
 #################################################################
+# ENSURE FISH IS VALID LOGIN SHELL
+#################################################################
+    - name: Ensure fish shell is in /etc/shells
+      ansible.builtin.lineinfile:
+        path: /etc/shells
+        line: /usr/bin/fish
+        create: no
+
+#################################################################
 # SET DEFAULT SHELL TO FISH
 #################################################################
     - name: Set fish default shell
