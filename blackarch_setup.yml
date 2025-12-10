@@ -28,7 +28,7 @@
       ansible.builtin.pacman:
         name:
           - base-devel
-          - docker.io
+          - docker
           - docker-compose
           - go
           - grc
