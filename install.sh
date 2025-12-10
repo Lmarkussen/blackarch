@@ -35,6 +35,10 @@ echo "[+] Installing Brave browser and Extension-manager..."
 yay -S extension-manager brave-bin --noconfirm
 echo "[+] extension-manager and Brave installation finished."
 
+echo "[+] Installing Extensions..."
+gnome-extensions install blurmyshell.zip
+gnome-extensions install dashtodock.zip
+
 # Return to original directory to access playbook
 cd "$ORIG_DIR"
 
