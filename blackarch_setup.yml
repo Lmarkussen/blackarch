@@ -186,58 +186,83 @@
         shell: /usr/bin/fish
 
 #################################################################
-# GNOME EXTENSIONS — AUTOMATIC API FETCH (LATEST + SAFE)
+# GNOME EXTENSIONS — BULLETPROOF INSTALL VIA API + VALIDATION
 #################################################################
 
-    - name: Install caffeine extension
+    - name: Install GNOME Extension (Caffeine)
       become_user: "{{ user }}"
       ansible.builtin.shell: |
         pk=517
         uuid="caffeine@patapon.info"
-        URL=$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '"download_url":.*?[^\\]",' | cut -d '"' -f4)
-        wget -qO /tmp/caffeine.zip "https://extensions.gnome.org$URL"
-        gnome-extensions install /tmp/caffeine.zip || true
-        gnome-extensions enable $uuid
+        URL="https://extensions.gnome.org$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '(?<=\"download_url\": \").*?(?=\")')"
+        curl -fsSL "$URL" -o /tmp/ext.zip
+        if file -b /tmp/ext.zip | grep -qi 'Zip archive'; then
+          gnome-extensions install /tmp/ext.zip || true
+          gnome-extensions enable $uuid
+        else
+          echo "Invalid caffeine archive"
+          exit 1
+        fi
 
-    - name: Install dash-to-dock extension
+    - name: Install GNOME Extension (Dash-to-Dock)
       become_user: "{{ user }}"
       ansible.builtin.shell: |
         pk=307
         uuid="dash-to-dock@micxgx.gmail.com"
-        URL=$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '"download_url":.*?[^\\]",' | cut -d '"' -f4)
-        wget -qO /tmp/dash.zip "https://extensions.gnome.org$URL"
-        gnome-extensions install /tmp/dash.zip || true
-        gnome-extensions enable $uuid
+        URL="https://extensions.gnome.org$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '(?<=\"download_url\": \").*?(?=\")')"
+        curl -fsSL "$URL" -o /tmp/ext.zip
+        if file -b /tmp/ext.zip | grep -qi 'Zip archive'; then
+          gnome-extensions install /tmp/ext.zip || true
+          gnome-extensions enable $uuid
+        else
+          echo "Invalid dash archive"
+          exit 1
+        fi
 
-    - name: Install user-theme extension
+    - name: Install GNOME Extension (User-Theme)
       become_user: "{{ user }}"
       ansible.builtin.shell: |
         pk=19
         uuid="user-theme@gnome-shell-extensions.gcampax.github.com"
-        URL=$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '"download_url":.*?[^\\]",' | cut -d '"' -f4)
-        wget -qO /tmp/user-theme.zip "https://extensions.gnome.org$URL"
-        gnome-extensions install /tmp/user-theme.zip || true
-        gnome-extensions enable $uuid
+        URL="https://extensions.gnome.org$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '(?<=\"download_url\": \").*?(?=\")')"
+        curl -fsSL "$URL" -o /tmp/ext.zip
+        if file -b /tmp/ext.zip | grep -qi 'Zip archive'; then
+          gnome-extensions install /tmp/ext.zip || true
+          gnome-extensions enable $uuid
+        else
+          echo "Invalid user-theme archive"
+          exit 1
+        fi
 
-    - name: Install tray icons reloaded extension
+    - name: Install GNOME Extension (Tray Icons Reloaded)
       become_user: "{{ user }}"
       ansible.builtin.shell: |
         pk=2890
         uuid="trayIconsReloaded@selfmade.pl"
-        URL=$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '"download_url":.*?[^\\]",' | cut -d '"' -f4)
-        wget -qO /tmp/tray.zip "https://extensions.gnome.org$URL"
-        gnome-extensions install /tmp/tray.zip || true
-        gnome-extensions enable $uuid
+        URL="https://extensions.gnome.org$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '(?<=\"download_url\": \").*?(?=\")')"
+        curl -fsSL "$URL" -o /tmp/ext.zip
+        if file -b /tmp/ext.zip | grep -qi 'Zip archive'; then
+          gnome-extensions install /tmp/ext.zip || true
+          gnome-extensions enable $uuid
+        else
+          echo "Invalid tray archive"
+          exit 1
+        fi
 
-    - name: Install blur my shell extension
+    - name: Install GNOME Extension (Blur My Shell)
       become_user: "{{ user }}"
       ansible.builtin.shell: |
         pk=3193
         uuid="blur-my-shell@aunetx"
-        URL=$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '"download_url":.*?[^\\]",' | cut -d '"' -f4)
-        wget -qO /tmp/blur.zip "https://extensions.gnome.org$URL"
-        gnome-extensions install /tmp/blur.zip || true
-        gnome-extensions enable $uuid
+        URL="https://extensions.gnome.org$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '(?<=\"download_url\": \").*?(?=\")')"
+        curl -fsSL "$URL" -o /tmp/ext.zip
+        if file -b /tmp/ext.zip | grep -qi 'Zip archive'; then
+          gnome-extensions install /tmp/ext.zip || true
+          gnome-extensions enable $uuid
+        else
+          echo "Invalid blur archive"
+          exit 1
+        fi
 
 #################################################################
 # DRACULA GTK THEME
