@@ -60,7 +60,6 @@
           - tmux
           - fish
           - obsidian
-          - gnome-obfuscate
           - virtualbox
         state: present
 
@@ -246,7 +245,6 @@
           'thunar.desktop',
           'ghostty.desktop',
           'obsidian.desktop',
-          'org.gnome.Obfuscate.desktop',
           'virtualbox.desktop'
         ]"
 
