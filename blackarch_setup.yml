@@ -185,6 +185,13 @@
         name: "{{ user }}"
         shell: /usr/bin/fish
 
+#################################################################
+# SET GNOME DARK MODE
+#################################################################
+    - name: Enable GNOME dark mode
+      become_user: "{{ user }}"
+      ansible.builtin.shell: |
+        gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
 
 #################################################################
 # DRACULA GTK THEME

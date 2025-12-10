@@ -31,13 +31,13 @@ makepkg -si --noconfirm
 echo "[+] yay installation finished."
 
 echo "[+] Installing Brave browser and Extension-manager..."
-
+cd ~/blackarch/
 yay -S extension-manager brave-bin --noconfirm
 echo "[+] extension-manager and Brave installation finished."
 
 echo "[+] Installing Extensions..."
-gnome-extensions install blurmyshell.zip
-gnome-extensions install dashtodock.zip
+gnome-extensions install blurmyshell.zip --force
+gnome-extensions install dashtodock.zip --force
 
 # Return to original directory to access playbook
 cd "$ORIG_DIR"
