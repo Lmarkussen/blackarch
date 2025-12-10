@@ -1,56 +1,81 @@
 #!/usr/bin/env bash
-set -e
 
-# Store the directory the script is launched from
-ORIG_DIR="$(pwd)"
+#===============================================================
+#   Visual Formatting
+#===============================================================
+NC="\e[0m"
+RED="\e[31m"
+GREEN="\e[32m"
+BLUE="\e[34m"
+YELLOW="\e[33m"
+CYAN="\e[36m"
+BOLD="\e[1m"
 
-echo "[*] Updating pacman and installing requirements..."
-sudo pacman --noconfirm -Syyu
-sudo pacman --noconfirm --needed -S git ansible reflector base-devel
+clear
 
-# Make sure pacman DB isn't locked
-if [[ -e /var/lib/pacman/db.lck ]]; then
-    echo "[!] Removing pacman lock file..."
-    sudo rm /var/lib/pacman/db.lck
-fi
+echo -e "${CYAN}${BOLD}"
+echo "==============================================================="
+echo "              🔥 BlackArch Setup Installer 🔥"
+echo "==============================================================="
+echo -e "${NC}"
 
-WORKDIR="/tmp/yay_install"
 
-echo "[+] Creating temp directory: $WORKDIR"
-rm -rf "$WORKDIR"
-mkdir -p "$WORKDIR"
-cd "$WORKDIR"
-
-echo "[+] Cloning yay from AUR..."
+#===============================================================
+#   Clone yay
+#===============================================================
+echo -e "${BLUE}[+]${NC} Cloning yay from AUR..."
 git clone https://aur.archlinux.org/yay.git
 
-echo "[+] Building yay (makepkg)..."
+
+#===============================================================
+#   Build yay
+#===============================================================
+echo -e "${BLUE}[+]${NC} Building yay (makepkg)..."
 cd yay
 makepkg -si --noconfirm
+echo -e "${GREEN}[✔] yay installation finished.${NC}"
 
-echo "[+] yay installation finished."
 
-echo "[+] Installing Brave browser and Extension-manager..."
+#===============================================================
+#   Install Brave + Extension Manager + ProtonPass
+#===============================================================
+echo -e "${BLUE}[+]${NC} Installing Brave browser, Extension-manager and ProtonPass..."
 cd ~/blackarch/
 yay -S extension-manager brave-bin protonpass --noconfirm
-echo "[+] extension-manager and Brave installation finished."
+echo -e "${GREEN}[✔] extension-manager, Brave, and ProtonPass installed.${NC}"
 
-echo "[+] Installing Extensions..."
+
+#===============================================================
+#   Install GNOME Extensions
+#===============================================================
+echo -e "${BLUE}[+]${NC} Installing GNOME Extensions..."
 gnome-extensions install blurmyshell.zip --force
 gnome-extensions install dashtodock.zip --force
+echo -e "${GREEN}[✔] GNOME Extensions installed.${NC}"
 
-# Return to original directory to access playbook
+
+#===============================================================
+#   Run Ansible Playbook
+#===============================================================
 cd "$ORIG_DIR"
-
-echo "[*] Running Ansible playbook..."
+echo -e "${YELLOW}[*] Running Ansible playbook...${NC}"
 ansible-playbook blackarch_setup.yml --ask-become-pass
 
-echo "[+] Cleaning up temp..."
+
+#===============================================================
+#   Cleanup
+#===============================================================
+cd "$ORIG_DIR"
+echo -e "${BLUE}[+]${NC} Cleaning up temp..."
 rm -rf "$WORKDIR"
 
+
+#===============================================================
+#   Done
+#===============================================================
 echo
-echo "==============================================================="
+echo -e "${CYAN}${BOLD}==============================================================="
 echo " 🎯 Full Setup Completed — REBOOT Recommended "
 echo "==============================================================="
-echo
+echo -e "${NC}"
 
