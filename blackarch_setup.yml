@@ -44,6 +44,8 @@
           - john
           - obsidian
           - hydra
+          - virtualbox
+          - virtualbox-host-modules-arch
           - sqlmap
           - impacket
           - openvpn

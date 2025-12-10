@@ -32,7 +32,7 @@ echo "[+] yay installation finished."
 
 echo "[+] Installing Brave browser and Extension-manager..."
 cd ~/blackarch/
-yay -S extension-manager brave-bin --noconfirm
+yay -S extension-manager brave-bin protonpass --noconfirm
 echo "[+] extension-manager and Brave installation finished."
 
 echo "[+] Installing Extensions..."
