@@ -15,7 +15,7 @@ clear
 
 echo -e "${CYAN}${BOLD}"
 echo "==============================================================="
-echo "              🔥 EvilArch Desktop Installer 🔥"
+echo "              🔥 BlackArch Setup Installer 🔥"
 echo "==============================================================="
 echo -e "${NC}"
 
@@ -37,12 +37,12 @@ echo -e "${GREEN}[✔] yay installation finished.${NC}"
 
 
 #===============================================================
-#   Install Brave + Extension Manager + ProtonPass
+#   Install Brave, Extension Manager & Proton Pass
 #===============================================================
 echo -e "${BLUE}[+]${NC} Installing Brave browser, Extension-manager and ProtonPass..."
 cd ~/blackarch/
 yay -S extension-manager brave-bin protonpass --noconfirm
-echo -e "${GREEN}[✔] extension-manager, Brave, and ProtonPass installed.${NC}"
+echo -e "${GREEN}[✔] extension-manager, Brave and ProtonPass installed.${NC}"
 
 
 #===============================================================
@@ -57,25 +57,24 @@ echo -e "${GREEN}[✔] GNOME Extensions installed.${NC}"
 #===============================================================
 #   Run Ansible Playbook
 #===============================================================
-cd "$ORIG_DIR"
 echo -e "${YELLOW}[*] Running Ansible playbook...${NC}"
+cd "$ORIG_DIR"
 ansible-playbook blackarch_setup.yml --ask-become-pass
 
 
 #===============================================================
-#   Cleanup
+#   Cleanup after success
 #===============================================================
-cd "$ORIG_DIR"
-echo -e "${BLUE}[+]${NC} Cleaning up temp..."
+echo -e "${BLUE}[+]${NC} Cleaning up temp working directory..."
 rm -rf "$WORKDIR"
 
 
 #===============================================================
 #   Done
 #===============================================================
-echo
-echo -e "${CYAN}${BOLD}==============================================================="
-echo " 🎯 Full Setup Completed — REBOOT Recommended "
+echo -e "${CYAN}${BOLD}"
+echo "==============================================================="
+echo " 🎯 Full System Setup Completed — REBOOT Recommended"
 echo "==============================================================="
 echo -e "${NC}"
 
