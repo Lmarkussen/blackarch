@@ -37,6 +37,8 @@
           - unzip
           - python-pip
           - python-pipx
+          - thunar
+          - thunar-archive-plugin
           - gobuster
           - hashcat
           - john
