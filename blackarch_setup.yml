@@ -193,7 +193,7 @@
 
     - name: Copy Ghostty config
       ansible.builtin.copy:
-        src: ghostty.conf
+        src: config
         dest: "{{ user_home }}/.config/ghostty/config"
         owner: "{{ user }}"
         group: "{{ user }}"
