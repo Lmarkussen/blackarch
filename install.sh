@@ -30,6 +30,11 @@ makepkg -si --noconfirm
 
 echo "[+] yay installation finished."
 
+echo "[+] Installing Brave browser and Extension-manager..."
+
+yay -S extension-manager brave-bin --noconfirm
+echo "[+] extension-manager and Brave installation finished."
+
 # Return to original directory to access playbook
 cd "$ORIG_DIR"
 

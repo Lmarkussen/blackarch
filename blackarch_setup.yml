@@ -28,9 +28,9 @@
       ansible.builtin.pacman:
         name:
           - base-devel
+          - go
           - docker
           - docker-compose
-          - go
           - grc
           - wget
           - curl
@@ -111,6 +111,22 @@
         remote_src: yes
       become_user: "{{ user }}"
 
+    - name: Update font cache
+      ansible.builtin.shell: fc-cache -f
+
+#################################################################
+# SET HACK FONT AS DEFAULT
+#################################################################
+    - name: Set GNOME monospace font to Hack Nerd Font
+      become_user: "{{ user }}"
+      ansible.builtin.shell: |
+        gsettings set org.gnome.desktop.interface monospace-font-name 'Hack Nerd Font Mono 11'
+
+    - name: Set GNOME interface font to Hack Nerd Font
+      become_user: "{{ user }}"
+      ansible.builtin.shell: |
+        gsettings set org.gnome.desktop.interface font-name 'Hack Nerd Font Regular 11'
+
 #################################################################
 # WALLPAPER
 #################################################################
@@ -169,11 +185,39 @@
         name: "{{ user }}"
         shell: /usr/bin/fish
 
+
+#################################################################
+# GNOME EXTENSIONS
+#################################################################
+    - name: Install GNOME extensions
+      become_user: "{{ user }}"
+      ansible.builtin.shell: |
+        extension-manager install \
+          caffeine@patapon.info \
+          dash-to-dock@micxgx.gmail.com \
+          user-theme@gnome-shell-extensions.gcampax.github.com \
+          trayIconsReloaded@selfmade.pl \
+          blur-my-shell@aunetx
+
+#################################################################
+# DRACULA GTK THEME
+#################################################################
+    - name: Clone Dracula GTK Theme
+      become_user: "{{ user }}"
+      ansible.builtin.git:
+        repo: "https://github.com/dracula/gtk"
+        dest: "{{ user_home }}/.themes/Dracula"
+
+    - name: Apply Dracula GTK theme
+      become_user: "{{ user }}"
+      ansible.builtin.shell: |
+        gsettings set org.gnome.desktop.interface gtk-theme 'Dracula'
+
+
 #################################################################
 # DONE
 #################################################################
     - name: Finished
       ansible.builtin.debug:
         msg: "Setup completed. Reboot is recommended"
-
 
