@@ -84,6 +84,7 @@
         - https://github.com/Lmarkussen/EvilFTP
         - https://github.com/Lmarkussen/Bruteforce_wordlist_nor
         - https://github.com/OleFredrik1/remoteKrbRelayx
+        - https://github.com/login-securite/DonPAPI
       become_user: "{{ user }}"
 
 #################################################################
