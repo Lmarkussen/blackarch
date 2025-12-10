@@ -127,6 +127,7 @@
       ansible.builtin.shell: |
         gsettings set org.gnome.desktop.interface font-name 'Hack Nerd Font Regular 11'
 
+
 #################################################################
 # WALLPAPER
 #################################################################
@@ -142,6 +143,7 @@
         gsettings set org.gnome.desktop.background picture-uri "file://{{ user_home }}/Pictures/wallpaper.jpg"
         gsettings set org.gnome.desktop.background picture-uri-dark "file://{{ user_home }}/Pictures/wallpaper.jpg"
       become_user: "{{ user }}"
+
 
 #################################################################
 # TMUX CONFIG
@@ -160,6 +162,7 @@
         owner: "{{ user }}"
         group: "{{ user }}"
 
+
 #################################################################
 # FISH CONFIG
 #################################################################
@@ -177,6 +180,7 @@
         owner: "{{ user }}"
         group: "{{ user }}"
 
+
 #################################################################
 # SET DEFAULT SHELL TO FISH
 #################################################################
@@ -187,33 +191,44 @@
 
 
 #################################################################
-# GNOME EXTENSIONS (better visibility)
+# GNOME EXTENSIONS — STABLE ZIP INSTALL
 #################################################################
 
     - name: Install caffeine extension
       become_user: "{{ user }}"
       ansible.builtin.shell: |
-        extension-manager install caffeine@patapon.info
+        wget -qO /tmp/caffeine.zip https://extensions.gnome.org/extension-data/caffeinepatapon.info.vextension.zip
+        gnome-extensions install /tmp/caffeine.zip || true
+        gnome-extensions enable caffeine@patapon.info
 
     - name: Install dash-to-dock extension
       become_user: "{{ user }}"
       ansible.builtin.shell: |
-        extension-manager install dash-to-dock@micxgx.gmail.com
+        wget -qO /tmp/dash.zip https://extensions.gnome.org/extension-data/dash-to-dockmicxgx.gmail.com.vextension.zip
+        gnome-extensions install /tmp/dash.zip || true
+        gnome-extensions enable dash-to-dock@micxgx.gmail.com
 
     - name: Install user-theme extension
       become_user: "{{ user }}"
       ansible.builtin.shell: |
-        extension-manager install user-theme@gnome-shell-extensions.gcampax.github.com
+        wget -qO /tmp/user-theme.zip https://extensions.gnome.org/extension-data/user-themegnome-shell-extensions.gcampax.github.com.vextension.zip
+        gnome-extensions install /tmp/user-theme.zip || true
+        gnome-extensions enable user-theme@gnome-shell-extensions.gcampax.github.com
 
     - name: Install tray icons reloaded extension
       become_user: "{{ user }}"
       ansible.builtin.shell: |
-        extension-manager install trayIconsReloaded@selfmade.pl
+        wget -qO /tmp/tray.zip https://extensions.gnome.org/extension-data/trayIconsReloadedselfmade.pl.vextension.zip
+        gnome-extensions install /tmp/tray.zip || true
+        gnome-extensions enable trayIconsReloaded@selfmade.pl
 
     - name: Install blur my shell extension
       become_user: "{{ user }}"
       ansible.builtin.shell: |
-        extension-manager install blur-my-shell@aunetx
+        wget -qO /tmp/blur.zip https://extensions.gnome.org/extension-data/blur-my-shellaunetx.vextension.zip
+        gnome-extensions install /tmp/blur.zip || true
+        gnome-extensions enable blur-my-shell@aunetx
+
 
 #################################################################
 # DRACULA GTK THEME
