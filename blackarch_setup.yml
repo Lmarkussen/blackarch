@@ -42,6 +42,7 @@
           - gobuster
           - hashcat
           - john
+          - obsidian
           - hydra
           - sqlmap
           - impacket
