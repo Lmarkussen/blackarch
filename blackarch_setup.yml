@@ -127,7 +127,6 @@
       ansible.builtin.shell: |
         gsettings set org.gnome.desktop.interface font-name 'Hack Nerd Font Regular 11'
 
-
 #################################################################
 # WALLPAPER
 #################################################################
@@ -143,7 +142,6 @@
         gsettings set org.gnome.desktop.background picture-uri "file://{{ user_home }}/Pictures/wallpaper.jpg"
         gsettings set org.gnome.desktop.background picture-uri-dark "file://{{ user_home }}/Pictures/wallpaper.jpg"
       become_user: "{{ user }}"
-
 
 #################################################################
 # TMUX CONFIG
@@ -162,7 +160,6 @@
         owner: "{{ user }}"
         group: "{{ user }}"
 
-
 #################################################################
 # FISH CONFIG
 #################################################################
@@ -180,7 +177,6 @@
         owner: "{{ user }}"
         group: "{{ user }}"
 
-
 #################################################################
 # SET DEFAULT SHELL TO FISH
 #################################################################
@@ -189,46 +185,59 @@
         name: "{{ user }}"
         shell: /usr/bin/fish
 
-
 #################################################################
-# GNOME EXTENSIONS — STABLE ZIP INSTALL
+# GNOME EXTENSIONS — AUTOMATIC API FETCH (LATEST + SAFE)
 #################################################################
 
     - name: Install caffeine extension
       become_user: "{{ user }}"
       ansible.builtin.shell: |
-        wget -qO /tmp/caffeine.zip https://extensions.gnome.org/extension-data/caffeinepatapon.info.vextension.zip
+        pk=517
+        uuid="caffeine@patapon.info"
+        URL=$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '"download_url":.*?[^\\]",' | cut -d '"' -f4)
+        wget -qO /tmp/caffeine.zip "https://extensions.gnome.org$URL"
         gnome-extensions install /tmp/caffeine.zip || true
-        gnome-extensions enable caffeine@patapon.info
+        gnome-extensions enable $uuid
 
     - name: Install dash-to-dock extension
       become_user: "{{ user }}"
       ansible.builtin.shell: |
-        wget -qO /tmp/dash.zip https://extensions.gnome.org/extension-data/dash-to-dockmicxgx.gmail.com.vextension.zip
+        pk=307
+        uuid="dash-to-dock@micxgx.gmail.com"
+        URL=$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '"download_url":.*?[^\\]",' | cut -d '"' -f4)
+        wget -qO /tmp/dash.zip "https://extensions.gnome.org$URL"
         gnome-extensions install /tmp/dash.zip || true
-        gnome-extensions enable dash-to-dock@micxgx.gmail.com
+        gnome-extensions enable $uuid
 
     - name: Install user-theme extension
       become_user: "{{ user }}"
       ansible.builtin.shell: |
-        wget -qO /tmp/user-theme.zip https://extensions.gnome.org/extension-data/user-themegnome-shell-extensions.gcampax.github.com.vextension.zip
+        pk=19
+        uuid="user-theme@gnome-shell-extensions.gcampax.github.com"
+        URL=$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '"download_url":.*?[^\\]",' | cut -d '"' -f4)
+        wget -qO /tmp/user-theme.zip "https://extensions.gnome.org$URL"
         gnome-extensions install /tmp/user-theme.zip || true
-        gnome-extensions enable user-theme@gnome-shell-extensions.gcampax.github.com
+        gnome-extensions enable $uuid
 
     - name: Install tray icons reloaded extension
       become_user: "{{ user }}"
       ansible.builtin.shell: |
-        wget -qO /tmp/tray.zip https://extensions.gnome.org/extension-data/trayIconsReloadedselfmade.pl.vextension.zip
+        pk=2890
+        uuid="trayIconsReloaded@selfmade.pl"
+        URL=$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '"download_url":.*?[^\\]",' | cut -d '"' -f4)
+        wget -qO /tmp/tray.zip "https://extensions.gnome.org$URL"
         gnome-extensions install /tmp/tray.zip || true
-        gnome-extensions enable trayIconsReloaded@selfmade.pl
+        gnome-extensions enable $uuid
 
     - name: Install blur my shell extension
       become_user: "{{ user }}"
       ansible.builtin.shell: |
-        wget -qO /tmp/blur.zip https://extensions.gnome.org/extension-data/blur-my-shellaunetx.vextension.zip
+        pk=3193
+        uuid="blur-my-shell@aunetx"
+        URL=$(curl -s https://extensions.gnome.org/extension-info/?pk=$pk | grep -Po '"download_url":.*?[^\\]",' | cut -d '"' -f4)
+        wget -qO /tmp/blur.zip "https://extensions.gnome.org$URL"
         gnome-extensions install /tmp/blur.zip || true
-        gnome-extensions enable blur-my-shell@aunetx
-
+        gnome-extensions enable $uuid
 
 #################################################################
 # DRACULA GTK THEME
@@ -243,7 +252,6 @@
       become_user: "{{ user }}"
       ansible.builtin.shell: |
         gsettings set org.gnome.desktop.interface gtk-theme 'Dracula'
-
 
 #################################################################
 # DONE
