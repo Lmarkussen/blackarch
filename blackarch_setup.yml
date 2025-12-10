@@ -210,9 +210,9 @@
 #################################################################
 # DONE
 #################################################################
-   - name: Finished
-     ansible.builtin.debug:
-     msg:
-       - "Setup completed, Happy Hacking!"
-       - "Reboot is recommended."
-       
+    - name: Finished
+      ansible.builtin.debug:
+        msg:
+          - "Setup completed, Happy Hacking!"
+          - "Reboot is recommended."
+
