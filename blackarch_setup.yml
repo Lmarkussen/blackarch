@@ -42,10 +42,7 @@
           - gobuster
           - hashcat
           - john
-          - obsidian
           - hydra
-          - virtualbox
-          - virtualbox-host-modules-arch
           - sqlmap
           - impacket
           - openvpn
@@ -62,6 +59,9 @@
           - evil-winrm
           - tmux
           - fish
+          - obsidian
+          - gnome-obfuscate
+          - virtualbox
         state: present
 
 #################################################################
@@ -194,7 +194,7 @@
 
     - name: Copy Ghostty config
       ansible.builtin.copy:
-        src: ghostty.conf       # <-- your file next to playbook
+        src: ghostty.conf
         dest: "{{ user_home }}/.config/ghostty/config"
         owner: "{{ user }}"
         group: "{{ user }}"
@@ -228,6 +228,27 @@
       become_user: "{{ user }}"
       ansible.builtin.shell: |
         gsettings set org.gnome.desktop.interface gtk-theme 'Dracula'
+
+#################################################################
+# DOCK FAVORITES
+#################################################################
+    - name: Clear existing dock favorites
+      become_user: "{{ user }}"
+      ansible.builtin.shell: |
+        gsettings set org.gnome.shell favorite-apps "[]"
+
+    - name: Set GNOME dock pinned apps
+      become_user: "{{ user }}"
+      ansible.builtin.shell: |
+        gsettings set org.gnome.shell favorite-apps "[
+          'brave-browser.desktop',
+          'proton-pass.desktop',
+          'thunar.desktop',
+          'ghostty.desktop',
+          'obsidian.desktop',
+          'org.gnome.Obfuscate.desktop',
+          'virtualbox.desktop'
+        ]"
 
 #################################################################
 # DONE
