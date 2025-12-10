@@ -187,17 +187,33 @@
 
 
 #################################################################
-# GNOME EXTENSIONS
+# GNOME EXTENSIONS (better visibility)
 #################################################################
-    - name: Install GNOME extensions
+
+    - name: Install caffeine extension
       become_user: "{{ user }}"
       ansible.builtin.shell: |
-        extension-manager install \
-          caffeine@patapon.info \
-          dash-to-dock@micxgx.gmail.com \
-          user-theme@gnome-shell-extensions.gcampax.github.com \
-          trayIconsReloaded@selfmade.pl \
-          blur-my-shell@aunetx
+        extension-manager install caffeine@patapon.info
+
+    - name: Install dash-to-dock extension
+      become_user: "{{ user }}"
+      ansible.builtin.shell: |
+        extension-manager install dash-to-dock@micxgx.gmail.com
+
+    - name: Install user-theme extension
+      become_user: "{{ user }}"
+      ansible.builtin.shell: |
+        extension-manager install user-theme@gnome-shell-extensions.gcampax.github.com
+
+    - name: Install tray icons reloaded extension
+      become_user: "{{ user }}"
+      ansible.builtin.shell: |
+        extension-manager install trayIconsReloaded@selfmade.pl
+
+    - name: Install blur my shell extension
+      become_user: "{{ user }}"
+      ansible.builtin.shell: |
+        extension-manager install blur-my-shell@aunetx
 
 #################################################################
 # DRACULA GTK THEME
