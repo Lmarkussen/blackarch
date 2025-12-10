@@ -55,6 +55,14 @@ echo -e "${GREEN}[✔] GNOME Extensions installed.${NC}"
 
 
 #===============================================================
+#   Install Ansible
+#===============================================================
+echo -e "${BLUE}[+]${NC} Installing Ansible..."
+sudo pacman -S --needed ansible --noconfirm
+echo -e "${GREEN}[✔] Ansible installation finished.${NC}"
+
+
+#===============================================================
 #   Run Ansible Playbook
 #===============================================================
 echo -e "${YELLOW}[*] Running Ansible playbook...${NC}"
