@@ -20,23 +20,6 @@
     - name: Update package databases
       ansible.builtin.pacman:
         update_cache: true
-        
-#################################################################
-# FLATPAK + OBFUSCATE
-#################################################################
-    - name: Ensure flatpak is installed
-      ansible.builtin.pacman:
-        name: flatpak
-        state: present
-
-    - name: Add Flathub repository
-      ansible.builtin.shell: |
-        flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-
-    - name: Install Obfuscate from Flatpak
-      ansible.builtin.shell: |
-        flatpak install -y flathub com.belmoussaoui.Obfuscate
-
 
 #################################################################
 # PACMAN PACKAGES
@@ -78,7 +61,23 @@
           - fish
           - obsidian
           - virtualbox
+          - flatpak
         state: present
+
+#################################################################
+# FLATPAK APPLICATIONS
+#################################################################
+    - name: Add Flathub repository
+      ansible.builtin.shell: |
+        flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+    - name: Install Obfuscate (Flatpak)
+      ansible.builtin.shell: |
+        flatpak install -y flathub com.belmoussaoui.Obfuscate
+
+    - name: Install Visual Studio Code (Flatpak)
+      ansible.builtin.shell: |
+        flatpak install -y flathub com.visualstudio.code
 
 #################################################################
 # CREATE TOOLS DIRECTORY
@@ -271,7 +270,9 @@
           'thunar.desktop',
           'ghostty.desktop',
           'obsidian.desktop',
-          'virtualbox.desktop'
+          'virtualbox.desktop',
+          'com.visualstudio.code.desktop',
+          'com.belmoussaoui.Obfuscate.desktop'
         ]"
 
 #################################################################
