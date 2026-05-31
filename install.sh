@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -Eeuo pipefail
 
 #===============================================================
 #   Visual Formatting
@@ -10,6 +11,22 @@ BLUE="\e[34m"
 YELLOW="\e[33m"
 CYAN="\e[36m"
 BOLD="\e[1m"
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+RESOURCES_ZIP="$SCRIPT_DIR/resources.zip"
+WORKDIR="$(mktemp -d)"
+
+cleanup() {
+    rm -rf "$WORKDIR"
+}
+trap cleanup EXIT
+
+die() {
+    echo -e "${RED}[x]${NC} $*" >&2
+    exit 1
+}
+
+[[ "$EUID" -ne 0 ]] || die "Run this installer as your normal user, not with sudo."
 
 clear
 
@@ -23,20 +40,21 @@ echo -e "${NC}"
 #   Decompressing Resources
 #===============================================================
 echo -e "${BLUE}[+]${NC} Decompressing..."
-unzip resources.zip
+[[ -f "$RESOURCES_ZIP" ]] || die "Missing resources.zip next to install.sh"
+unzip -q "$RESOURCES_ZIP" -d "$WORKDIR"
 
 #===============================================================
 #   Clone yay
 #===============================================================
 echo -e "${BLUE}[+]${NC} Cloning yay from AUR..."
-git clone https://aur.archlinux.org/yay.git
+git clone https://aur.archlinux.org/yay.git "$WORKDIR/yay"
 
 
 #===============================================================
 #   Build yay
 #===============================================================
 echo -e "${BLUE}[+]${NC} Building yay (makepkg)..."
-cd yay
+cd "$WORKDIR/yay"
 makepkg -si --noconfirm
 echo -e "${GREEN}[✔] yay installation finished.${NC}"
 
@@ -45,7 +63,6 @@ echo -e "${GREEN}[✔] yay installation finished.${NC}"
 #   Install Brave, Extension Manager & Proton Pass
 #===============================================================
 echo -e "${BLUE}[+]${NC} Installing Brave browser, Extension-manager and ProtonPass..."
-cd ~/blackarch/
 yay -S extension-manager brave-bin protonpass --noconfirm
 echo -e "${GREEN}[✔] extension-manager, Brave and ProtonPass installed.${NC}"
 
@@ -54,8 +71,8 @@ echo -e "${GREEN}[✔] extension-manager, Brave and ProtonPass installed.${NC}"
 #   Install GNOME Extensions
 #===============================================================
 echo -e "${BLUE}[+]${NC} Installing GNOME Extensions..."
-gnome-extensions install blurmyshell.zip --force
-gnome-extensions install dashtodock.zip --force
+gnome-extensions install "$WORKDIR/blurmyshell.zip" --force
+gnome-extensions install "$WORKDIR/dashtodock.zip" --force
 echo -e "${GREEN}[✔] GNOME Extensions installed.${NC}"
 
 
@@ -63,7 +80,7 @@ echo -e "${GREEN}[✔] GNOME Extensions installed.${NC}"
 #   Install Ansible
 #===============================================================
 echo -e "${BLUE}[+]${NC} Installing Ansible..."
-sudo pacman -S --needed ansible --noconfirm
+sudo pacman -Syu --needed ansible --noconfirm
 echo -e "${GREEN}[✔] Ansible installation finished.${NC}"
 
 
@@ -71,15 +88,13 @@ echo -e "${GREEN}[✔] Ansible installation finished.${NC}"
 #   Run Ansible Playbook
 #===============================================================
 echo -e "${YELLOW}[*] Running Ansible playbook...${NC}"
-cd "$ORIG_DIR"
-ansible-playbook blackarch_setup.yml --ask-become-pass
+ANSIBLE_CONFIG="$WORKDIR/ansible.cfg" ansible-playbook "$WORKDIR/blackarch_setup.yml" --ask-become-pass
 
 
 #===============================================================
 #   Cleanup after success
 #===============================================================
 echo -e "${BLUE}[+]${NC} Cleaning up temp working directory..."
-rm -rf "$WORKDIR"
 
 
 #===============================================================
@@ -90,4 +105,3 @@ echo "==============================================================="
 echo " 🎯 Full System Setup Completed — REBOOT Recommended"
 echo "==============================================================="
 echo -e "${NC}"
-
