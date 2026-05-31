@@ -79,6 +79,7 @@ echo -e "${GREEN}[✔] extension-manager, Brave and ProtonPass installed.${NC}"
 #===============================================================
 echo -e "${BLUE}[+]${NC} Installing GNOME Extensions..."
 gnome-extensions install "$WORKDIR/blurmyshell.zip" --force
+gnome-extensions install "$WORKDIR/dashtodock.zip" --force
 echo -e "${GREEN}[✔] GNOME Extensions installed.${NC}"
 
 
