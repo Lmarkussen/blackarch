@@ -44,6 +44,13 @@ echo -e "${BLUE}[+]${NC} Decompressing..."
 unzip -q "$RESOURCES_ZIP" -d "$WORKDIR"
 
 #===============================================================
+#   Install Build Prerequisites
+#===============================================================
+echo -e "${BLUE}[+]${NC} Installing build prerequisites..."
+sudo pacman -Syu --needed base-devel fakeroot debugedit git go --noconfirm
+echo -e "${GREEN}[✔] Build prerequisites installed.${NC}"
+
+#===============================================================
 #   Clone yay
 #===============================================================
 echo -e "${BLUE}[+]${NC} Cloning yay from AUR..."
